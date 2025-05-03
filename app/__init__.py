@@ -1,30 +1,41 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager
 from flask_migrate import Migrate
-from app.config import Config
+from flask_login import LoginManager
+from config import Config
 
-db = SQLAlchemy() # Crea una instancia de SQLAlchemy
-migrate = Migrate() # Crea una instancia de Migrate
-login_manager = LoginManager() # Crea una instancia de LoginManager
-login_manager.login_view = 'auth.logih' # Establece la vista de inicio de sesión
+db = SQLAlchemy()
+migrate = Migrate()
+login_manager = LoginManager()
+login_manager.login_view = 'auth.login'
+login_manager.login_message = 'Por favor inicie sesión para acceder a esta página.'
+login_manager.login_message_category = 'info'
 
-def create_app(config_class=Config): # Crea una aplicación Flask
+def create_app(config_class=Config):
     app = Flask(__name__)
-    app.config.from_object(config_class) # Carga la configuración de la aplicación
-
-    db.init_app(app) # Inicializa la base de datos
-    migrate.init_app(app, db) # Inicializa la migración
-    login_manager.init_app(app) # Inicializa el login manager
-
-    # el blueprint es un conjunto de rutas y vistas que se pueden agrupar y reutilizar en una aplicación Flask.
-    from app.routes.auth import auth as auth_blueprint # Importa el blueprint de autenticación
-    from app.routes.profesor import profesor as profesor_blueprint # Importa el blueprint de profesor
-    from app.routes.admin import admin as admin_blueprint # Importa el blueprint de administrador
+    app.config.from_object(config_class)
     
-
-    app.register_blueprint(auth_blueprint) # Registra el blueprint de autenticación
-    app.register_blueprint(profesor_blueprint, url_prefix='/profesor')  # Registra el blueprint de profesor
-    app.register_blueprint(admin_blueprint, url_prefix='/admin') # Registra el blueprint de administrador
+    db.init_app(app)
+    migrate.init_app(app, db)
+    login_manager.init_app(app)
+    
+    from app.models.users import User
+    
+    @login_manager.user_loader
+    def load_user(id):
+        return User.query.get(int(id))
+    
+    # Registrar blueprints
+    from app.routes.auth import auth as auth_bp
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    
+    from app.routes.admin import admin as admin_bp
+    app.register_blueprint(admin_bp, url_prefix='/admin')
+    
+    from app.routes.teacher import teacher as teacher_bp
+    app.register_blueprint(teacher_bp, url_prefix='/teacher')
+    
+    from app.routes.reports import reports as reports_bp
+    app.register_blueprint(reports_bp, url_prefix='/reports')
     
     return app

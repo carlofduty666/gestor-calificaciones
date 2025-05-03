@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">{{ assignment.subject.name }} - {{ assignment.section.grade.name }}{{ assignment.section.name }}</h1>
+<h3 class="mb-3">Período: {{ period.name }}</h3>
+
+<div class="mb-3">
+    <a href="{{ url_for('teacher.enter_final_grades', assignment_id=assignment.id, period_id=period.id) }}" class="btn btn-primary">
+        <i class="bi bi-pencil-square"></i> Ingresar Calificaciones Finales
+    </a>
+    <a href="{{ url_for('reports.section_report', section_id=assignment.section_id, period_id=period.id) }}" class="btn btn-success">
+        <i class="bi bi-file-earmark-text"></i> Ver Reporte
+    </a>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-hover">
+        <thead class="table-primary">
+            <tr>
+                <th>ID</th>
+                <th>Estudiante</th>
+                {% for grade_type in grade_types %}
+                    <th>{{ grade_type.name }} ({{ grade_type.weight }})</th>
+                {% endfor %}
+                <th>Calificación Final</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for student in students %}
+                <tr>
+                    <td>{{ student.student_id }}</td>
+                    <td>{{ student.last_name }}, {{ student.first_name }}</td>
+                    
+                    {% for grade_type in grade_types %}
+                        <td>
+                            {% if student.id in grades and grade_type.id in grades[student.id] %}
+                                {{ grades[student.id][grade_type.id] }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                    
+                    <td>
+                        {% if student.id in final_grades %}
+                            <strong>{{ final_grades[student.id] }}</strong>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    
+                    <td>
+                        <a href="{{ url_for('teacher.enter_grade', assignment_id=assignment.id, student_id=student.id, period_id=period.id) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil"></i> Calificar
+                        </a>
+                        <a href="{{ url_for('reports.student_report', student_id=student.id, period_id=period.id) }}" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-file-text"></i> Reporte
+                        </a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

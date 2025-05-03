@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Ingresar Calificaciones</h1>
+<h3 class="mb-3">{{ student.last_name }}, {{ student.first_name }}</h3>
+<h4 class="mb-3">{{ assignment.subject.name }} - {{ period.name }}</h4>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post" novalidate>
+            {{ form.hidden_tag() }}
+            
+            {% for grade_type in grade_types %}
+                {% set field_name = 'grade_' ~ grade_type.id %}
+                {% if field_name in form._fields %}
+                    <div class="mb-3">
+                        {{ form[field_name].label(class="form-label") }}
+                        <div class="input-group">
+                            {{ form[field_name](class="form-control") }}
+                            <span class="input-group-text">/ 100</span>
+                        </div>
+                        {% for error in form[field_name].errors %}
+                            <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endfor %}
+            
+            <div class="mb-3">
+                {{ form.comments.label(class="form-label") }}
+                {{ form.comments(class="form-control", rows=3) }}
+                {% for error in form.comments.errors %}
+                    <div class="text-danger">{{ error }}</div>
+                {% endfor %}
+            </div>
+            
+            <div class="d-flex justify-content-between">
+                <a href="{{ url_for('teacher.view_grades', assignment_id=assignment.id, period_id=period.id) }}" class="btn btn-secondary">Cancelar</a>
+                {{ form.submit(class="btn btn-primary") }}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

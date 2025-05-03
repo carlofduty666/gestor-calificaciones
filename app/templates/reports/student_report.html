@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Boleta de Calificaciones</h1>
+    <div>
+        <a href="{{ url_for('reports.export_student_pdf', student_id=student.id, period_id=period.id) }}" class="btn btn-danger">
+            <i class="bi bi-file-earmark-pdf"></i> Exportar a PDF
+        </a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">Información del Estudiante</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <p><strong>Nombre:</strong> {{ student.first_name }} {{ student.last_name }}</p>
+                <p><strong>ID:</strong> {{ student.student_id }}</p>
+            </div>
+            <div class="col-md-4">
+                <p><strong>Grado:</strong> {{ student.section.grade.name }}</p>
+                <p><strong>Sección:</strong> {{ student.section.name }}</p>
+            </div>
+            <div class="col-md-4">
+                <p><strong>Período:</strong> {{ period.name }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    {% for subject in subjects %}
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">{{ subject.name }}</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Tipo de Calificación</th>
+                                <th>Valor</th>
+                                <th>Peso</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if subject.id in grades_data %}
+                                {% for grade_type_id, grade in grades_data[subject.id].items() %}
+                                    <tr>
+                                        <td>{{ grade.name }}</td>
+                                        <td class="text-center">{{ grade.value }}</td>
+                                        <td class="text-center">{{ grade.weight }}</td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center">No hay calificaciones registradas</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                        <tfoot class="table-secondary">
+                            <tr>
+                                <th>Calificación Final</th>
+                                <th colspan="2" class="text-center">
+                                    {% if subject.id in final_grades %}
+                                        <strong>{{ final_grades[subject.id] }}</strong>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+<div class="card mt-3">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0">Resumen</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h4>Promedio General: 
+                    {% set total = 0 %}
+                    {% set count = 0 %}
+                    {% for subject_id, grade in final_grades.items() %}
+                        {% set total = total + grade %}
+                        {% set count = count + 1 %}
+                    {% endfor %}
+                    
+                    {% if count > 0 %}
+                        <strong>{{ (total / count) | round(2) }}</strong>
+                    {% else %}
+                        <strong>-</strong>
+                    {% endif %}
+                </h4>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

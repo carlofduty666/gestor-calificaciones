@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Panel de Administración{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Panel de Administración</h1>
+
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Usuarios</h5>
+                <p class="card-text">Administra usuarios del sistema, incluyendo profesores y administradores.</p>
+                <a href="{{ url_for('admin.users') }}" class="btn btn-primary">Gestionar Usuarios</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Años Académicos</h5>
+                <p class="card-text">Configura años académicos y períodos escolares.</p>
+                <a href="{{ url_for('admin.academic_years') }}" class="btn btn-primary">Gestionar Años Académicos</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Grados y Secciones</h5>
+                <p class="card-text">Administra grados escolares y sus secciones.</p>
+                <a href="{{ url_for('admin.grades') }}" class="btn btn-primary">Gestionar Grados</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Asignaturas</h5>
+                <p class="card-text">Gestiona las asignaturas impartidas en la institución.</p>
+                <a href="{{ url_for('admin.subjects') }}" class="btn btn-primary">Gestionar Asignaturas</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Estudiantes</h5>
+                <p class="card-text">Administra el registro de estudiantes por sección.</p>
+                <a href="{{ url_for('admin.students') }}" class="btn btn-primary">Gestionar Estudiantes</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Asignaciones</h5>
+                <p class="card-text">Asigna profesores a asignaturas y secciones.</p>
+                <a href="{{ url_for('admin.assignments') }}" class="btn btn-primary">Gestionar Asignaciones</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Tipos de Calificación</h5>
+                <p class="card-text">Configura los tipos de calificación para cada asignatura.</p>
+                <a href="{{ url_for('admin.grade_types') }}" class="btn btn-primary">Gestionar Tipos de Calificación</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Reportes</h5>
+                <p class="card-text">Genera reportes de calificaciones por sección o estudiante.</p>
+                <a href="{{ url_for('reports.index') }}" class="btn btn-primary">Ver Reportes</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

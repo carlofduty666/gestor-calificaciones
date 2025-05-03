@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Reporte de Calificaciones</h1>
+    <div>
+        <a href="{{ url_for('reports.export_section_excel', section_id=section.id, period_id=period.id) }}" class="btn btn-success">
+            <i class="bi bi-file-earmark-excel"></i> Exportar a Excel
+        </a>
+        <a href="{{ url_for('reports.export_section_pdf', section_id=section.id, period_id=period.id) }}" class="btn btn-danger">
+            <i class="bi bi-file-earmark-pdf"></i> Exportar a PDF
+        </a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">Información General</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <p><strong>Grado:</strong> {{ section.grade.name }}</p>
+            </div>
+            <div class="col-md-4">
+                <p><strong>Sección:</strong> {{ section.name }}</p>
+            </div>
+            <div class="col-md-4">
+                <p><strong>Período:</strong> {{ period.name }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-hover">
+        <thead class="table-primary">
+            <tr>
+                <th>ID</th>
+                <th>Estudiante</th>
+                {% for subject in subjects %}
+                    <th>{{ subject.name }}</th>
+                {% endfor %}
+                <th>Promedio</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for student in students %}
+                <tr>
+                    <td>{{ student.student_id }}</td>
+                    <td>{{ student.last_name }}, {{ student.first_name }}</td>
+                    
+                    {% for subject in subjects %}
+                        <td class="text-center">
+                            {% if subject.id in final_grades and student.id in final_grades[subject.id] %}
+                                {{ final_grades[subject.id][student.id] }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                    
+                    <td class="text-center">
+                        {% if student.id in averages %}
+                            <strong>{{ averages[student.id] }}</strong>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    
+                    <td>
+                        <a href="{{ url_for('reports.student_report', student_id=student.id, period_id=period.id) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-file-text"></i> Ver Reporte
+                        </a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Reportes{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Reportes de Calificaciones</h1>
+
+{% if active_year %}
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Año Académico: {{ active_year.name }}</h5>
+        </div>
+        <div class="card-body">
+            <h5 class="card-title">Seleccione un período y una sección para generar reportes:</h5>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Período:</label>
+                        <select id="period-select" class="form-select">
+                            <option value="">Seleccione un período</option>
+                            {% for period in periods %}
+                                <option value="{{ period.id }}">{{ period.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Sección:</label>
+                        <select id="section-select" class="form-select" disabled>
+                            <option value="">Seleccione una sección</option>
+                            {% for section in sections %}
+                                <option value="{{ section.id }}">{{ section.grade.name }}{{ section.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Acciones:</label>
+                        <div>
+                            <button id="view-report-btn" class="btn btn-primary" disabled>
+                                <i class="bi bi-file-earmark-text"></i> Ver Reporte
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Reportes Individuales</h5>
+        </div>
+        <div class="card-body">
+            <h5 class="card-title">Buscar estudiante:</h5>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Estudiante:</label>
+                        <select id="student-select" class="form-select" disabled>
+                            <option value="">Seleccione un estudiante</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label">Período:</label>
+                        <select id="student-period-select" class="form-select" disabled>
+                            <option value="">Seleccione un período</option>
+                            {% for period in periods %}
+                                <option value="{{ period.id }}">{{ period.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label">Acciones:</label>
+                        <div>
+                            <button id="view-student-report-btn" class="btn btn-primary" disabled>
+                                <i class="bi bi-file-earmark-text"></i> Ver Reporte
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% else %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i> No hay un año académico activo. Contacte al administrador.
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const periodSelect = document.getElementById('period-select');
+        const sectionSelect = document.getElementById('section-select');
+        const viewReportBtn = document.getElementById('view-report-btn');
+        const studentSelect = document.getElementById('student-select');
+        const studentPeriodSelect = document.getElementById('student-period-select');
+        const viewStudentReportBtn = document.getElementById('view-student-report-btn');
+        
+        // Habilitar selección de sección cuando se selecciona un período
+        periodSelect.addEventListener('change', function() {
+            if (this.value) {
+                sectionSelect.disabled = false;
+            } else {
+                sectionSelect.disabled = true;
+                sectionSelect.value = '';
+                viewReportBtn.disabled = true;
+            }
+        });
+        
+        // Habilitar botón de reporte cuando se selecciona una sección
+        sectionSelect.addEventListener('change', function() {
+            if (this.value) {
+                viewReportBtn.disabled = false;
+                
+                // Cargar estudiantes de esta sección
+                fetch(`/api/students/section/${this.value}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        studentSelect.innerHTML = '<option value="">Seleccione un estudiante</option>';
+                        data.forEach(student => {
+                            const option = document.createElement('option');
+                            option.value = student.id;
+                            option.textContent = `${student.last_name}, ${student.first_name} (${student.student_id})`;
+                            studentSelect.appendChild(option);
+                        });
+                        studentSelect.disabled = false;
+                    });
+            } else {
+                viewReportBtn.disabled = true;
+                studentSelect.disabled = true;
+                studentSelect.innerHTML = '<option value="">Seleccione un estudiante</option>';
+            }
+        });
+        
+        // Habilitar selección de período para estudiante
+        studentSelect.addEventListener('change', function() {
+            if (this.value) {
+                studentPeriodSelect.disabled = false;
+            } else {
+                studentPeriodSelect.disabled = true;
+                studentPeriodSelect.value = '';
+                viewStudentReportBtn.disabled = true;
+            }
+        });
+        
+        // Habilitar botón de reporte de estudiante
+        studentPeriodSelect.addEventListener('change', function() {
+            viewStudentReportBtn.disabled = !this.value;
+        });
+        
+        // Redirigir a reporte de sección
+        viewReportBtn.addEventListener('click', function() {
+            const periodId = periodSelect.value;
+            const sectionId = sectionSelect.value;
+            if (periodId && sectionId) {
+                window.location.href = `/reports/section/${sectionId}/period/${periodId}`;
+            }
+        });
+        
+        // Redirigir a reporte de estudiante
+        viewStudentReportBtn.addEventListener('click', function() {
+            const studentId = studentSelect.value;
+            const periodId = studentPeriodSelect.value;
+            if (studentId && periodId) {
+                window.location.href = `/reports/student/${studentId}/period/${periodId}`;
+            }
+        });
+    });
+</script>
+{% endblock %}

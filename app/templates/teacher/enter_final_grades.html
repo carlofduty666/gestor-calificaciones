@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Calificaciones Finales</h1>
+<h3 class="mb-3">{{ assignment.subject.name }} - {{ assignment.section.grade.name }}{{ assignment.section.name }}</h3>
+<h4 class="mb-3">Período: {{ period.name }}</h4>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> Las calificaciones propuestas son calculadas automáticamente según los pesos de cada tipo de calificación. Puede modificarlas si es necesario.
+</div>
+
+<form method="post" novalidate>
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover">
+            <thead class="table-primary">
+                <tr>
+                    <th>ID</th>
+                    <th>Estudiante</th>
+                    <th>Calificación Propuesta</th>
+                    <th>Calificación Final</th>
+                    <th>Comentarios</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in students %}
+                    <tr>
+                        <td>{{ student.student_id }}</td>
+                        <td>{{ student.last_name }}, {{ student.first_name }}</td>
+                        <td>
+                            {% if student.id in proposed_finals %}
+                                {{ proposed_finals[student.id] }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <input type="number" name="final_{{ student.id }}" class="form-control" min="0" max="100" step="0.01"
+                                value="{% if student.id in existing_finals %}{{ existing_finals[student.id]['value'] }}{% elif student.id in proposed_finals %}{{ proposed_finals[student.id] }}{% endif %}">
+                        </td>
+                        <td>
+                            <input type="text" name="comments_{{ student.id }}" class="form-control"
+                                value="{% if student.id in existing_finals %}{{ existing_finals[student.id]['comments'] }}{% endif %}">
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="d-flex justify-content-between mt-3">
+        <a href="{{ url_for('teacher.view_grades', assignment_id=assignment.id, period_id=period.id) }}" class="btn btn-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-primary">Guardar Calificaciones Finales</button>
+    </div>
+</form>
+{% endblock %}
