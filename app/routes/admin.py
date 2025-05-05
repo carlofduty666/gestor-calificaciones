@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file
+from flask import jsonify
 from io import BytesIO
 import pandas as pd
 from flask_login import login_required, current_user
@@ -226,64 +227,179 @@ def delete_period(id):
 @admin.route('/grades')
 @login_required
 def grades():
-    grades = Grade.query.all()
-    return render_template('admin/grades.html', title='Grados', grades=grades)
+    # Obtener todos los grados
+    all_grades = Grade.query.all()
+    
+    # Imprimir información para depuración
+    print(f"Total de grados: {len(all_grades)}")
+    for g in all_grades:
+        print(f"Grado: {g.id} - {g.name} - {g.level}")
+    
+    # Filtrar por nivel si se proporciona
+    level = request.args.get('level')
+    if level:
+        grades = Grade.query.filter_by(level=level).all()
+    else:
+        grades = all_grades
+    
+    return render_template('admin/grades.html', title='Gestión de Grados', grades=grades)
 
-@admin.route('/grades/new', methods=['GET', 'POST'])
+# Ruta para obtener detalles de un grado por AJAX
+@admin.route('/grades/<int:id>/details', methods=['GET'])
 @login_required
-def new_grade():
-    form = GradeForm()
-    if form.validate_on_submit():
-        grade = Grade(
-            name=form.name.data,
-            level=form.level.data,
-            description=form.description.data
-        )
+def get_grade_details(id):
+    grade = Grade.query.get_or_404(id)
+    return jsonify({
+        'id': grade.id,
+        'name': grade.name,
+        'level': grade.level,
+        'sections_count': grade.sections.count()
+    })
+
+# Ruta para crear un grado por AJAX
+@admin.route('/grades/create', methods=['POST'])
+@login_required
+def create_grade_ajax():
+    try:
+        name = request.form.get('name')
+        level = request.form.get('level')
+        
+        if not name or not level:
+            return jsonify({'success': False, 'message': 'Nombre y nivel son requeridos'}), 400
+            
+        grade = Grade(name=name, level=level)
         db.session.add(grade)
         db.session.commit()
-        flash('Grado creado correctamente', 'success')
-        return redirect(url_for('admin.grades'))
         
-    return render_template('admin/grades.html', title='Nuevo Grado', form=form)
+        return jsonify({
+            'success': True, 
+            'message': 'Grado creado correctamente',
+            'grade': {
+                'id': grade.id,
+                'name': grade.name,
+                'level': grade.level
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
-@admin.route('/grades/<int:id>/edit', methods=['GET', 'POST'])
+# Ruta para actualizar un grado por AJAX
+@admin.route('/grades/<int:id>/update', methods=['POST'])
 @login_required
-def edit_grade(id):
-    grade = Grade.query.get_or_404(id)
-    form = GradeForm(obj=grade)
-    
-    if form.validate_on_submit():
-        grade.name = form.name.data
-        grade.level = form.level.data
-        grade.description = form.description.data
+def update_grade_ajax(id):
+    try:
+        grade = Grade.query.get_or_404(id)
         
+        name = request.form.get('name')
+        level = request.form.get('level')
+        
+        if not name or not level:
+            return jsonify({'success': False, 'message': 'Nombre y nivel son requeridos'}), 400
+            
+        grade.name = name
+        grade.level = level
         db.session.commit()
-        flash('Grado actualizado correctamente', 'success')
-        return redirect(url_for('admin.grades'))
         
-    return render_template('admin/grade_form.html', title='Editar Grado', form=form)
+        return jsonify({
+            'success': True, 
+            'message': 'Grado actualizado correctamente',
+            'grade': {
+                'id': grade.id,
+                'name': grade.name,
+                'level': grade.level
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
+
+
+# Ruta para eliminar un grado por AJAX
 @admin.route('/grades/<int:id>/delete', methods=['POST'])
 @login_required
-def delete_grade(id):
-    grade = Grade.query.get_or_404(id)
-    
-    # Verificar si hay secciones asociadas a este grado
-    if Section.query.filter_by(grade_id=id).first():
-        flash('No se puede eliminar este grado porque tiene secciones asociadas', 'danger')
-        return redirect(url_for('admin.grades'))
-    
-    db.session.delete(grade)
-    db.session.commit()
-    flash('Grado eliminado correctamente', 'success')
-    return redirect(url_for('admin.grades'))
+def delete_grade_ajax(id):
+    try:
+        grade = Grade.query.get_or_404(id)
+        
+        # Verificar si tiene secciones
+        if grade.sections.count() > 0:
+            return jsonify({
+                'success': False, 
+                'message': f'No se puede eliminar el grado porque tiene {grade.sections.count()} secciones asociadas'
+            }), 400
+            
+        db.session.delete(grade)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Grado eliminado correctamente'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
-# Rutas para gestión de secciones
+# # # # RUTA PARA EDITAR GRADO SIN AJAX # # # #
+
+# @admin.route('/grades/<int:id>/edit', methods=['GET', 'POST'])
+# @login_required
+# def edit_grade(id):
+#     grade = Grade.query.get_or_404(id)
+#     form = GradeForm(obj=grade)
+    
+#     if form.validate_on_submit():
+#         grade.name = form.name.data
+#         grade.level = form.level.data
+#         grade.description = form.description.data
+        
+#         db.session.commit()
+#         flash('Grado actualizado correctamente', 'success')
+#         return redirect(url_for('admin.grades'))
+        
+#     return render_template('admin/grade_form.html', title='Editar Grado', form=form)
+
+# # # # RUTA PARA ELIMINAR GRADO SIN AJAX # # # #
+
+# @admin.route('/grades/<int:id>/delete', methods=['POST'])
+# @login_required
+# def delete_grade(id):
+#     grade = Grade.query.get_or_404(id)
+    
+#     # Verificar si hay secciones asociadas a este grado
+#     if Section.query.filter_by(grade_id=id).first():
+#         flash('No se puede eliminar este grado porque tiene secciones asociadas', 'danger')
+#         return redirect(url_for('admin.grades'))
+    
+#     db.session.delete(grade)
+#     db.session.commit()
+#     flash('Grado eliminado correctamente', 'success')
+#     return redirect(url_for('admin.grades'))
+
+# # Rutas para gestión de secciones
+# @admin.route('/sections')
+# @login_required
+# def sections():
+#     sections = Section.query.all()
+#     return render_template('admin/sections.html', title='Secciones', sections=sections)
+
 @admin.route('/sections')
 @login_required
 def sections():
+    # Obtener el parámetro grade_id si existe
+    grade_id = request.args.get('grade_id', type=int)
+    
+    # Filtrar secciones por grado si se proporciona grade_id
+    if grade_id:
+        grade = Grade.query.get_or_404(grade_id)
+        sections = Section.query.filter_by(grade_id=grade_id).all()
+        return render_template('admin/sections.html', title='Secciones', sections=sections, grade=grade)
+    
+    # Si no hay grade_id, mostrar todas las secciones
     sections = Section.query.all()
-    return render_template('admin/sections.html', title='Secciones', sections=sections)
+    grades = Grade.query.all()
+    return render_template('admin/sections.html', title='Secciones', sections=sections, grades=grades)
 
 @admin.route('/sections/new', methods=['GET', 'POST'])
 @login_required
