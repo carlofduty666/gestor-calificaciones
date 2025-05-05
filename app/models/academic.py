@@ -110,21 +110,20 @@ class Student(db.Model):
 
 class Teacher(db.Model):
     __tablename__ = 'teachers'
-    
+
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, unique=True)
-    specialization = db.Column(db.String(100), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    specialization = db.Column(db.String(100))
+    qualification = db.Column(db.String(100))
+    phone = db.Column(db.String(20))
+    identification_number = db.Column(db.String(20), unique=True)  # Cédula
+    is_registered = db.Column(db.Boolean, default=False)  # Indica si el profesor ha completado su registro
     
-    # Relaciones
-    assignments = db.relationship('TeacherAssignment', backref='teacher', lazy='dynamic', cascade='all, delete-orphan')
-    student_grades = db.relationship('StudentGrade', backref='teacher', lazy='dynamic')
+    # Relación con asignaciones
+    assignments = db.relationship('TeacherAssignment', backref='teacher', lazy='dynamic')
     
     def __repr__(self):
-        return f'<Teacher {self.user.last_name}, {self.user.first_name}>'
-    
-    def get_full_name(self):
-        return self.user.get_full_name()
+        return f'<Teacher {self.user.first_name} {self.user.last_name}>'
 
 class TeacherAssignment(db.Model):
     __tablename__ = 'teacher_assignments'
@@ -141,15 +140,9 @@ class TeacherAssignment(db.Model):
 
 
 class Admin(db.Model):
-    __tablename__ = 'admins'
-    
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, unique=True)
-    department = db.Column(db.String(100), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    department = db.Column(db.String(100))
     
     def __repr__(self):
-        return f'<Admin {self.user.last_name}, {self.user.first_name}>'
-    
-    def get_full_name(self):
-        return self.user.get_full_name()
+        return f'<Admin {self.user.first_name} {self.user.last_name}>'

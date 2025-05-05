@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
 from config import Config
+from datetime import datetime
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -18,6 +19,10 @@ def create_app(config_class=Config):
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
+
+    @app.context_processor
+    def inject_now():
+        return {'now': datetime.utcnow()}
     
     from app.models.users import User
     

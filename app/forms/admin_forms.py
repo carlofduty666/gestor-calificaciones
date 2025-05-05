@@ -92,6 +92,24 @@ class FinalGradeForm(FlaskForm):
     comments = StringField('Comentarios', validators=[Optional(), Length(max=200)])
     submit = SubmitField('Guardar')
 
+class TeacherPreRegistrationForm(FlaskForm):
+    identification_number = StringField('Número de Cédula', validators=[DataRequired(), Length(min=4, max=20)])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    first_name = StringField('Nombre', validators=[DataRequired(), Length(max=64)])
+    last_name = StringField('Apellido', validators=[DataRequired(), Length(max=64)])
+    specialization = StringField('Especialización', validators=[Optional(), Length(max=100)])
+    submit = SubmitField('Pre-Registrar Profesor')
+    
+    def validate_identification_number(self, identification_number):
+        user = User.query.filter_by(identification_number=identification_number.data).first()
+        if user is not None:
+            raise ValidationError('Esta cédula ya está registrada.')
+    
+    def validate_email(self, email):
+        user = User.query.filter_by(email=email.data).first()
+        if user is not None:
+            raise ValidationError('Este email ya está registrado.')
+
 class TeacherForm(FlaskForm):
     username = StringField('Usuario', validators=[DataRequired(), Length(min=4, max=64)])
     email = StringField('Email', validators=[DataRequired(), Email()])

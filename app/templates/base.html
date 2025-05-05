@@ -6,13 +6,21 @@
     <title>{% block title %}Sistema de Calificaciones{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     {% block styles %}{% endblock %}
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
         <div class="container">
-            <a class="navbar-brand" href="/">Sistema de Calificaciones</a>
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-graduation-cap me-2"></i>
+                Gestor de Calificaciones
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -21,51 +29,83 @@
                     {% if current_user.is_authenticated %}
                         {% if current_user.is_admin() %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('admin.dashboard') }}">Panel</a>
+                                <a class="nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}" href="{{ url_for('admin.dashboard') }}">
+                                    <i class="fas fa-tachometer-alt me-1"></i> Panel
+                                </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('admin.users') }}">Usuarios</a>
+                                <a class="nav-link {% if request.endpoint == 'admin.users' %}active{% endif %}" href="{{ url_for('admin.users') }}">
+                                    <i class="fas fa-users me-1"></i> Usuarios
+                                </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('admin.academic_years') }}">Años Académicos</a>
+                                <a class="nav-link {% if request.endpoint == 'admin.academic_years' %}active{% endif %}" href="{{ url_for('admin.academic_years') }}">
+                                    <i class="fas fa-calendar-alt me-1"></i> Años Académicos
+                                </a>
                             </li>
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                                    Académico
+                                    <i class="fas fa-book me-1"></i> Académico
                                 </a>
                                 <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" href="#">Grados</a></li>
-                                    <li><a class="dropdown-item" href="#">Secciones</a></li>
-                                    <li><a class="dropdown-item" href="#">Asignaturas</a></li>
-                                    <li><a class="dropdown-item" href="#">Estudiantes</a></li>
-                                    <li><a class="dropdown-item" href="#">Asignaciones</a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('admin.grades') }}">
+                                        <i class="fas fa-graduation-cap me-2"></i> Grados
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('admin.sections') }}">
+                                        <i class="fas fa-door-open me-2"></i> Secciones
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('admin.subjects') }}">
+                                        <i class="fas fa-book-open me-2"></i> Asignaturas
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('admin.students') }}">
+                                        <i class="fas fa-user-graduate me-2"></i> Estudiantes
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('admin.assignments') }}">
+                                        <i class="fas fa-chalkboard-teacher me-2"></i> Asignaciones
+                                    </a></li>
                                 </ul>
                             </li>
                         {% elif current_user.is_teacher() %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('teacher.dashboard') }}">Mis Cursos</a>
+                                <a class="nav-link {% if request.endpoint == 'teacher.dashboard' %}active{% endif %}" href="{{ url_for('teacher.dashboard') }}">
+                                    <i class="fas fa-chalkboard me-1"></i> Mis Cursos
+                                </a>
                             </li>
                         {% endif %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('reports.index') }}">Reportes</a>
+                            <a class="nav-link {% if request.endpoint == 'reports.index' %}active{% endif %}" href="{{ url_for('reports.index') }}">
+                                <i class="fas fa-chart-bar me-1"></i> Reportes
+                            </a>
                         </li>
                     {% endif %}
                 </ul>
                 <ul class="navbar-nav">
                     {% if current_user.is_authenticated %}
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                                {{ current_user.username }}
+                            <a class="nav-link dropdown-toggle nav-user" href="#" role="button" data-bs-toggle="dropdown">
+                                <div class="user-avatar">
+                                    {{ current_user.first_name[0] }}{{ current_user.last_name[0] }}
+                                </div>
+                                {{ current_user.first_name }}
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="#">Mi Perfil</a></li>
+                                <li><a class="dropdown-item" href="#">
+                                    <i class="fas fa-user me-2"></i> Mi Perfil
+                                </a></li>
+                                <li><a class="dropdown-item" href="#">
+                                    <i class="fas fa-cog me-2"></i> Configuración
+                                </a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Cerrar Sesión</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">
+                                    <i class="fas fa-sign-out-alt me-2"></i> Cerrar Sesión
+                                </a></li>
                             </ul>
                         </li>
                     {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('auth.login') }}">Iniciar Sesión</a>
+                            <a class="nav-link" href="{{ url_for('auth.login') }}">
+                                <i class="fas fa-sign-in-alt me-1"></i> Iniciar Sesión
+                            </a>
                         </li>
                     {% endif %}
                 </ul>
@@ -73,11 +113,15 @@
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <div class="container main-container">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        <i class="fas fa-{% if category == 'success' %}check-circle{% elif category == 'danger' %}exclamation-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
@@ -85,14 +129,47 @@
         {% block content %}{% endblock %}
     </div>
 
-    <footer class="footer mt-5 py-3 bg-light">
+    <footer class="footer py-3">
         <div class="container text-center">
-            <span class="text-muted">Sistema de Gestión de Calificaciones &copy; {{ now.year }}</span>
+            <span class="text-muted">
+                <i class="fas fa-school me-2"></i>
+                Sistema de Gestión de Calificaciones &copy; {{ now.year }}
+            </span>
         </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        // Inicializar tooltips de Bootstrap
+        document.addEventListener('DOMContentLoaded', function() {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl)
+            });
+            
+            // Agregar efecto de hover a los elementos del menú
+            document.querySelectorAll('.nav-link').forEach(function(link) {
+                if (!link.classList.contains('dropdown-toggle')) {
+                    link.addEventListener('mouseenter', function() {
+                        this.style.transform = 'translateY(-2px)';
+                    });
+                    
+                    link.addEventListener('mouseleave', function() {
+                        this.style.transform = 'translateY(0)';
+                    });
+                }
+            });
+            
+            // Animación para las alertas
+            document.querySelectorAll('.alert').forEach(function(alert) {
+                setTimeout(function() {
+                    var bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }, 5000); // Cerrar automáticamente después de 5 segundos
+            });
+        });
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

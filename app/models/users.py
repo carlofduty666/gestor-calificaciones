@@ -7,13 +7,15 @@ class User(UserMixin, db.Model):
     __tablename__ = 'users'
     
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(64), index=True, unique=True, nullable=False)
+    identification_number = db.Column(db.String(20), index=True, unique=True, nullable=True)  # Cédula
+    username = db.Column(db.String(64), index=True, unique=True, nullable=True)  # Ahora puede ser nulo
     email = db.Column(db.String(120), index=True, unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
+    password_hash = db.Column(db.String(128), nullable=True)  # Puede ser nulo inicialmente
     first_name = db.Column(db.String(64), nullable=False)
     last_name = db.Column(db.String(64), nullable=False)
     role = db.Column(db.String(20), nullable=False, default='teacher')
     is_active = db.Column(db.Boolean, default=True)
+    is_registered = db.Column(db.Boolean, default=False)  # Indica si el usuario ha completado su registro
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime, nullable=True)
     
@@ -22,7 +24,7 @@ class User(UserMixin, db.Model):
     admin_profile = db.relationship('Admin', backref='user', uselist=False, cascade='all, delete-orphan')
     
     def __repr__(self):
-        return f'<User {self.username}>'
+        return f'<User {self.identification_number}>'
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -38,4 +40,3 @@ class User(UserMixin, db.Model):
     
     def get_full_name(self):
         return f'{self.first_name} {self.last_name}'
-

@@ -8,7 +8,7 @@ from wtforms.validators import DataRequired, Email, Length, EqualTo, NumberRange
 from app.models.users import User
 from app.models.academic import AcademicYear, Period, Grade, Section, Subject, Student, Teacher, TeacherAssignment, Admin
 from app.models.grades import GradeType, StudentGrade, FinalGrade
-from app.forms.admin_forms import UserForm, AcademicYearForm, PeriodForm, GradeForm, SectionForm, SubjectForm, StudentForm, TeacherForm, TeacherAssignmentForm, SettingsForm, GradeTypeForm, StudentGradeForm, FinalGradeForm
+from app.forms.admin_forms import UserForm, AcademicYearForm, PeriodForm, GradeForm, SectionForm, SubjectForm, StudentForm, TeacherForm, TeacherAssignmentForm, SettingsForm, GradeTypeForm, StudentGradeForm, FinalGradeForm, TeacherPreRegistrationForm
 from app import db
 
 admin = Blueprint('admin', __name__)
@@ -484,7 +484,7 @@ def delete_student(id):
 @login_required
 def teachers():
     teachers = Teacher.query.all()
-    return render_template('admin/teachers.html', title='Profesores', teachers=teachers)
+    return render_template('admin/teachers.html', title='Gestión de Profesores', teachers=teachers)
 
 @admin.route('/teachers/new', methods=['GET', 'POST'])
 @login_required
@@ -518,54 +518,92 @@ def new_teacher():
         
     return render_template('admin/teacher_form.html', title='Nuevo Profesor', form=form)
 
+@admin.route('/teachers/pre-register', methods=['GET', 'POST'])
+@login_required
+def pre_register_teacher():
+    form = TeacherPreRegistrationForm()
+    if form.validate_on_submit():
+        # Crear usuario sin contraseña
+        user = User(
+            identification_number=form.identification_number.data,
+            email=form.email.data,
+            first_name=form.first_name.data,
+            last_name=form.last_name.data,
+            role='teacher',
+            is_registered=False
+        )
+        db.session.add(user)
+        
+        # Crear perfil de profesor
+        teacher = Teacher(
+            user=user,
+            specialization=form.specialization.data
+        )
+        db.session.add(teacher)
+        
+        db.session.commit()
+        flash(f'Profesor pre-registrado correctamente. Cédula: {form.identification_number.data}', 'success')
+        return redirect(url_for('admin.teachers'))
+        
+    return render_template('admin/teacher_pre_register.html', title='Pre-Registrar Profesor', form=form)
+
 @admin.route('/teachers/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_teacher(id):
     teacher = Teacher.query.get_or_404(id)
-    user = teacher.user
-    form = TeacherForm(obj=user)
-    form.specialization.data = teacher.specialization
-    form.qualification.data = teacher.qualification
-    form.phone.data = teacher.phone
+    form = TeacherPreRegistrationForm()
     
     if form.validate_on_submit():
-        # Actualizar usuario
-        user.username = form.username.data
-        user.email = form.email.data
-        user.first_name = form.first_name.data
-        user.last_name = form.last_name.data
-        
-        if form.password.data:
-            user.set_password(form.password.data)
-        
-        # Actualizar perfil de profesor
+        # Verificar si la cédula ya está en uso por otro usuario
+        existing_user = User.query.filter_by(identification_number=form.identification_number.data).first()
+        if existing_user and existing_user.id != teacher.user.id:
+            flash('Esta cédula ya está en uso por otro usuario', 'danger')
+            return redirect(url_for('admin.edit_teacher', id=id))
+            
+        # Verificar si el email ya está en uso por otro usuario
+        existing_user = User.query.filter_by(email=form.email.data).first()
+        if existing_user and existing_user.id != teacher.user.id:
+            flash('Este email ya está en uso por otro usuario', 'danger')
+            return redirect(url_for('admin.edit_teacher', id=id))
+            
+        # Actualizar datos
+        teacher.user.identification_number = form.identification_number.data
+        teacher.user.email = form.email.data
+        teacher.user.first_name = form.first_name.data
+        teacher.user.last_name = form.last_name.data
         teacher.specialization = form.specialization.data
-        teacher.qualification = form.qualification.data
-        teacher.phone = form.phone.data
         
         db.session.commit()
         flash('Profesor actualizado correctamente', 'success')
         return redirect(url_for('admin.teachers'))
         
-    return render_template('admin/teacher_form.html', title='Editar Profesor', form=form)
+    # Cargar datos actuales en el formulario
+    if request.method == 'GET':
+        form.identification_number.data = teacher.user.identification_number
+        form.email.data = teacher.user.email
+        form.first_name.data = teacher.user.first_name
+        form.last_name.data = teacher.user.last_name
+        form.specialization.data = teacher.specialization
+        
+    return render_template('admin/teacher_pre_register.html', title='Editar Profesor', form=form, teacher=teacher)
 
 @admin.route('/teachers/<int:id>/delete', methods=['POST'])
 @login_required
 def delete_teacher(id):
     teacher = Teacher.query.get_or_404(id)
     
-    # Verificar si hay asignaciones asociadas a este profesor
-    if TeacherAssignment.query.filter_by(teacher_id=id).first():
-        flash('No se puede eliminar este profesor porque tiene asignaciones de cursos', 'danger')
+    # No permitir eliminar si tiene asignaciones
+    if teacher.assignments.count() > 0:
+        flash('No se puede eliminar este profesor porque tiene asignaciones', 'danger')
         return redirect(url_for('admin.teachers'))
-    
-    # Eliminar usuario (esto eliminará también el perfil de profesor por la cascada)
-    user = teacher.user
-    db.session.delete(user)
+        
+    # Eliminar usuario (esto también eliminará el perfil de profesor debido a la cascada)
+    db.session.delete(teacher.user)
     db.session.commit()
     
     flash('Profesor eliminado correctamente', 'success')
     return redirect(url_for('admin.teachers'))
+
 
 # Rutas para gestión de asignaciones de profesores
 @admin.route('/assignments')

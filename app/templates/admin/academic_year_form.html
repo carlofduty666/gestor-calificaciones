@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-4 align-items-center">
+            <div class="col-sm-6">
+                <h1 class="m-0 text-gradient">
+                    <i class="fas fa-calendar-alt me-2"></i>{{ title }}
+                </h1>
+            </div>
+            <div class="col-sm-6">
+                <div class="float-sm-end">
+                    <a href="{{ url_for('admin.academic_years') }}" class="btn btn-outline-secondary btn-dashboard">
+                        <i class="fas fa-arrow-left me-2"></i>Volver
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="content">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-8 mx-auto">
+                <div class="card dashboard-card">
+                    <div class="card-body p-4">
+                        <form method="POST" action="">
+                            {{ form.hidden_tag() }}
+                            
+                            <div class="mb-3">
+                                {{ form.name.label(class="form-label") }}
+                                {{ form.name(class="form-control", placeholder="Ej: Año Escolar 2023-2024") }}
+                                {% if form.name.errors %}
+                                    <div class="text-danger mt-1">
+                                        {% for error in form.name.errors %}
+                                            <small>{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    {{ form.start_date.label(class="form-label") }}
+                                    {{ form.start_date(class="form-control", type="date") }}
+                                    {% if form.start_date.errors %}
+                                        <div class="text-danger mt-1">
+                                            {% for error in form.start_date.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    {{ form.end_date.label(class="form-label") }}
+                                    {{ form.end_date(class="form-control", type="date") }}
+                                    {% if form.end_date.errors %}
+                                        <div class="text-danger mt-1">
+                                            {% for error in form.end_date.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <div class="form-check">
+                                    {{ form.is_active(class="form-check-input") }}
+                                    {{ form.is_active.label(class="form-check-label") }}
+                                    <small class="form-text text-muted d-block mt-1">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Si marca esta opción, este año académico se establecerá como el activo y los demás se desactivarán.
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <a href="{{ url_for('admin.academic_years') }}" class="btn btn-outline-secondary me-md-2">
+                                    Cancelar
+                                </a>
+                                {{ form.submit(class="btn btn-primary") }}
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // Inicializar datepickers si es necesario
+    document.addEventListener('DOMContentLoaded', function() {
+        // Si estás usando un plugin de datepicker, inicialízalo aquí
+    });
+</script>
+{% endblock %}

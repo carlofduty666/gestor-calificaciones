@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Años Académicos{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-4 align-items-center">
+            <div class="col-sm-6">
+                <h1 class="m-0 text-gradient">
+                    <i class="fas fa-calendar-alt me-2"></i>Años Académicos
+                </h1>
+            </div>
+            <div class="col-sm-6">
+                <div class="float-sm-end">
+                    <a href="{{ url_for('admin.new_academic_year') }}" class="btn btn-primary btn-dashboard">
+                        <i class="fas fa-plus-circle me-2"></i>Nuevo Año Académico
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="content">
+    <div class="container-fluid">
+        <div class="card dashboard-card">
+            <div class="card-body">
+                {% if years %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Fecha de Inicio</th>
+                                <th>Fecha de Fin</th>
+                                <th>Estado</th>
+                                <th>Períodos</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for year in years %}
+                            <tr class="animate-fade-in delay-{{ loop.index }}">
+                                <td>{{ year.name }}</td>
+                                <td>{{ year.start_date.strftime('%d/%m/%Y') }}</td>
+                                <td>{{ year.end_date.strftime('%d/%m/%Y') }}</td>
+                                <td>
+                                    {% if year.is_active %}
+                                    <span class="badge bg-success">Activo</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Inactivo</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('admin.periods', year_id=year.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-list me-1"></i>
+                                        {{ year.periods.count() }} Períodos
+                                    </a>
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{{ url_for('admin.edit_academic_year', id=year.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        {% if not year.is_active %}
+                                        <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#activateModal{{ year.id }}">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        {% endif %}
+                                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ year.id }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <!-- Modal para activar año académico -->
+                            <div class="modal fade" id="activateModal{{ year.id }}" tabindex="-1" aria-labelledby="activateModalLabel{{ year.id }}" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="activateModalLabel{{ year.id }}">Activar Año Académico</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>¿Está seguro de que desea activar el año académico <strong>{{ year.name }}</strong>?</p>
+                                            <p class="text-warning">
+                                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                                Esto desactivará el año académico actualmente activo.
+                                            </p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                            <form action="{{ url_for('admin.toggle_academic_year', id=year.id) }}" method="post">
+                                                <button type="submit" class="btn btn-success">Activar</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Modal para eliminar año académico -->
+                            <div class="modal fade" id="deleteModal{{ year.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ year.id }}" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="deleteModalLabel{{ year.id }}">Eliminar Año Académico</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>¿Está seguro de que desea eliminar el año académico <strong>{{ year.name }}</strong>?</p>
+                                            <p class="text-danger">
+                                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                                Esta acción no se puede deshacer y eliminará todos los períodos asociados.
+                                            </p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                            <form action="{{ url_for('admin.delete_academic_year', id=year.id) }}" method="post">
+                                                <button type="submit" class="btn btn-danger">Eliminar</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No hay años académicos registrados. 
+                    <a href="{{ url_for('admin.new_academic_year') }}" class="alert-link">Crear el primer año académico</a>.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // Activar tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+</script>
+{% endblock %}

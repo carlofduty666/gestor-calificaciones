@@ -4,6 +4,8 @@ from app.models.users import User
 from app.models.academic import AcademicYear, Period, Grade, Section, Subject, Student, Teacher, TeacherAssignment
 from app.models.grades import GradeType, StudentGrade, FinalGrade
 from app.forms.teacher_forms import GradeForm, FinalGradeForm
+from wtforms import FloatField
+from wtforms.validators import Optional, NumberRange
 from app import db
 
 teacher = Blueprint('teacher', __name__)
@@ -325,3 +327,5 @@ def enter_final_grades(assignment_id, period_id):
                           students=students,
                           proposed_finals=proposed_finals,
                           existing_finals=existing_finals)
+
+
