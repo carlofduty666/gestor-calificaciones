@@ -244,7 +244,7 @@ def new_grade():
         flash('Grado creado correctamente', 'success')
         return redirect(url_for('admin.grades'))
         
-    return render_template('admin/grade_form.html', title='Nuevo Grado', form=form)
+    return render_template('admin/grades.html', title='Nuevo Grado', form=form)
 
 @admin.route('/grades/<int:id>/edit', methods=['GET', 'POST'])
 @login_required

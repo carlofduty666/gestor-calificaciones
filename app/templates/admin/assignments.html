@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}Asignaciones de Profesores{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-4 align-items-center">
+            <div class="col-sm-6">
+                <h1 class="m-0 text-gradient">
+                    <i class="fas fa-chalkboard-teacher me-2"></i>Asignaciones de Profesores
+                </h1>
+            </div>
+            <div class="col-sm-6">
+                <div class="float-sm-end">
+                    <!-- Quitamos el botón de nueva asignación ya que los profesores lo harán -->
+                    <span class="badge bg-info text-white p-2">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Las asignaciones son gestionadas por los profesores
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="content">
+    <div class="container-fluid">
+        <!-- Filtros -->
+        <div class="card dashboard-card mb-4">
+            <div class="card-body">
+                <h5 class="card-title mb-3">
+                    <i class="fas fa-filter me-2"></i>Filtros de Visualización
+                </h5>
+                <form method="GET" action="{{ url_for('admin.assignments') }}" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="academic_year" class="form-label">Año Académico</label>
+                        <select name="academic_year" id="academic_year" class="form-select">
+                            <option value="">Todos</option>
+                            {% for year in academic_years %}
+                                <option value="{{ year.id }}" {% if request.args.get('academic_year')|int == year.id %}selected{% endif %}>
+                                    {{ year.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="teacher" class="form-label">Profesor</label>
+                        <select name="teacher" id="teacher" class="form-select">
+                            <option value="">Todos</option>
+                            {% for teacher in teachers %}
+                                <option value="{{ teacher.id }}" {% if request.args.get('teacher')|int == teacher.id %}selected{% endif %}>
+                                    {{ teacher.user.last_name }}, {{ teacher.user.first_name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="subject" class="form-label">Asignatura</label>
+                        <select name="subject" id="subject" class="form-select">
+                            <option value="">Todas</option>
+                            {% for subject in subjects %}
+                                <option value="{{ subject.id }}" {% if request.args.get('subject')|int == subject.id %}selected{% endif %}>
+                                    {{ subject.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="section" class="form-label">Sección</label>
+                        <select name="section" id="section" class="form-select">
+                            <option value="">Todas</option>
+                            {% for section in sections %}
+                                <option value="{{ section.id }}" {% if request.args.get('section')|int == section.id %}selected{% endif %}>
+                                    {{ section.grade.name }} "{{ section.name }}"
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12 text-end">
+                        <a href="{{ url_for('admin.assignments') }}" class="btn btn-outline-secondary me-2">
+                            <i class="fas fa-undo me-1"></i>Limpiar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search me-1"></i>Filtrar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Mensaje informativo permanente -->
+        <div class="permanent-alert permanent-alert-info mb-4">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Información:</strong> En esta sección puede visualizar las asignaciones de profesores a asignaturas y secciones. 
+            Las asignaciones son creadas por los profesores desde su panel de control.
+        </div>
+
+        <!-- Tabla de asignaciones -->
+        <div class="card dashboard-card">
+            <div class="card-body">
+                {% if assignments %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Profesor</th>
+                                <th>Asignatura</th>
+                                <th>Sección</th>
+                                <th>Año Académico</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for assignment in assignments %}
+                            <tr class="animate-fade-in delay-{{ loop.index }}">
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="user-avatar me-2">
+                                            {{ assignment.teacher.user.first_name[0] }}{{ assignment.teacher.user.last_name[0] }}
+                                        </div>
+                                        <div>
+                                            <div class="fw-semibold">{{ assignment.teacher.user.last_name }}, {{ assignment.teacher.user.first_name }}</div>
+                                            <small class="text-muted">{{ assignment.teacher.specialization or 'Sin especialización' }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info text-dark">{{ assignment.subject.code }}</span>
+                                    <div class="mt-1">{{ assignment.subject.name }}</div>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold">{{ assignment.section.grade.name }} "{{ assignment.section.name }}"</div>
+                                    <small class="text-muted">{{ assignment.section.grade.level }}</small>
+                                </td>
+                                <td>
+                                    {{ assignment.academic_year.name }}
+                                </td>
+                                <td>
+                                    {% if assignment.academic_year.is_active %}
+                                    <span class="badge bg-success">Activo</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Inactivo</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Paginación -->
+                {% if pagination and pagination.pages > 1 %}
+                <nav aria-label="Navegación de páginas" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if pagination.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.assignments', page=pagination.prev_num, **request.args) }}" aria-label="Anterior">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <a class="page-link" href="#" aria-label="Anterior">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% for page in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                            {% if page %}
+                                {% if page == pagination.page %}
+                                <li class="page-item active">
+                                    <a class="page-link" href="#">{{ page }}</a>
+                                </li>
+                                {% else %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin.assignments', page=page, **request.args) }}">{{ page }}</a>
+                                </li>
+                                {% endif %}
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#">...</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if pagination.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.assignments', page=pagination.next_num, **request.args) }}" aria-label="Siguiente">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <a class="page-link" href="#" aria-label="Siguiente">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+                
+                {% else %}
+                <div class="permanent-alert permanent-alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No hay asignaciones registradas con los filtros seleccionados. 
+
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // Activar tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+    
+    // Enviar formulario al cambiar filtros
+    document.querySelectorAll('#academic_year, #teacher, #subject, #section').forEach(function(select) {
+        select.addEventListener('change', function() {
+            this.form.submit();
+        });
+    });
+</script>
+{% endblock %}
+

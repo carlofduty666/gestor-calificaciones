@@ -583,6 +583,65 @@ body.auth-page .main-container {
     background-color: #6c757d !important;
 }
 
+/* Alertas permanentes que imitan el estilo de Bootstrap pero no se cierran automáticamente */
+.permanent-alert {
+    position: relative;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1rem;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.permanent-alert-primary {
+    color: #084298;
+    background-color: #cfe2ff;
+    border-color: #b6d4fe;
+}
+
+.permanent-alert-secondary {
+    color: #41464b;
+    background-color: #e2e3e5;
+    border-color: #d3d6d8;
+}
+
+.permanent-alert-success {
+    color: #0f5132;
+    background-color: #d1e7dd;
+    border-color: #badbcc;
+}
+
+.permanent-alert-danger {
+    color: #842029;
+    background-color: #f8d7da;
+    border-color: #f5c2c7;
+}
+
+.permanent-alert-warning {
+    color: #664d03;
+    background-color: #fff3cd;
+    border-color: #ffecb5;
+}
+
+.permanent-alert-info {
+    color: #055160;
+    background-color: #cff4fc;
+    border-color: #b6effb;
+}
+
+.permanent-alert-light {
+    color: #636464;
+    background-color: #fefefe;
+    border-color: #fdfdfe;
+}
+
+.permanent-alert-dark {
+    color: #141619;
+    background-color: #d3d3d4;
+    border-color: #bcbebf;
+}
+
+
 /* Estilos para botones en tablas */
 .btn-sm {
     padding: 0.25rem 0.5rem;
@@ -673,6 +732,159 @@ body.auth-page .main-container {
 .delay-9 { animation-delay: 0.9s; }
 .delay-10 { animation-delay: 1.0s; }
 
+/* Estilos para la página de asignaciones */
+.user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.table .user-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 0.8rem;
+}
+
+/* Estilos para los filtros */
+.form-select {
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 0.5rem 1rem;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.25);
+}
+
+.form-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: var(--dark-color);
+}
+
+/* Estilos para badges en la tabla */
+.badge {
+    font-weight: 500;
+    padding: 0.5em 0.8em;
+    border-radius: 30px;
+}
+
+.bg-info {
+    background-color: var(--info-color) !important;
+}
+
+.text-dark {
+    color: rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Estilos para la paginación */
+.pagination {
+    margin-bottom: 0;
+}
+
+.page-link {
+    color: var(--primary-color);
+    border: none;
+    padding: 0.5rem 0.75rem;
+    margin: 0 0.2rem;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.page-link:hover {
+    background-color: rgba(67, 97, 238, 0.1);
+    color: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+.page-item.active .page-link {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.page-item.disabled .page-link {
+    color: #6c757d;
+    pointer-events: none;
+    background-color: transparent;
+}
+
+/* Estilos para la lista en el modal */
+.list-group-item {
+    padding: 0.75rem 1.25rem;
+    background-color: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
+}
+
+.list-group-flush {
+    border-radius: 8px;
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Estilos para tooltips */
+.tooltip {
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.8rem;
+}
+
+.tooltip-inner {
+    background-color: var(--dark-color);
+    border-radius: 6px;
+    padding: 0.5rem 0.8rem;
+}
+
+.bs-tooltip-top .tooltip-arrow::before {
+    border-top-color: var(--dark-color);
+}
+
+.bs-tooltip-bottom .tooltip-arrow::before {
+    border-bottom-color: var(--dark-color);
+}
+
+.bs-tooltip-start .tooltip-arrow::before {
+    border-left-color: var(--dark-color);
+}
+
+.bs-tooltip-end .tooltip-arrow::before {
+    border-right-color: var(--dark-color);
+}
+
+/* Estilos para los botones de filtro */
+.btn-outline-secondary {
+    color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-outline-secondary:hover {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+/* Estilos para texto en la tabla */
+.fw-semibold {
+    font-weight: 600 !important;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
 /* Responsive adjustments */
 @media (max-width: 992px) {
     .navbar-collapse {
@@ -715,6 +927,24 @@ body.auth-page .main-container {
     
     .stat-card {
         width: 100%;
+    }
+}
+
+
+/* Mejoras para dispositivos móviles */
+@media (max-width: 768px) {
+    .table-responsive {
+        border-radius: 12px;
+    }
+    
+    .form-select, .form-control {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.8rem;
+    }
+    
+    .btn-dashboard {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
     }
 }
 
