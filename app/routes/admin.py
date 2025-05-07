@@ -1,9 +1,9 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file
-from flask import jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file, jsonify
 from io import BytesIO
 import pandas as pd
 from flask_login import login_required, current_user
 from flask_wtf import FlaskForm
+from datetime import datetime 
 from wtforms import StringField, TextAreaField, IntegerField, SelectField, BooleanField, PasswordField, SubmitField, DateField
 from wtforms.validators import DataRequired, Email, Length, EqualTo, NumberRange, ValidationError
 from app.models.users import User
@@ -223,37 +223,33 @@ def delete_period(id):
     flash('Período académico eliminado correctamente', 'success')
     return redirect(url_for('admin.periods'))
 
-# Rutas para gestión de grados
+# Rutas para gestión de grados y secciones
 @admin.route('/grades')
 @login_required
 def grades():
-    # Obtener todos los grados
-    all_grades = Grade.query.all()
-    
-    # Imprimir información para depuración
-    print(f"Total de grados: {len(all_grades)}")
-    for g in all_grades:
-        print(f"Grado: {g.id} - {g.name} - {g.level}")
-    
-    # Filtrar por nivel si se proporciona
-    level = request.args.get('level')
-    if level:
-        grades = Grade.query.filter_by(level=level).all()
-    else:
-        grades = all_grades
-    
-    return render_template('admin/grades.html', title='Gestión de Grados', grades=grades)
+    grades = Grade.query.all()
+    return render_template('admin/grades.html', title='Grados y Secciones', grades=grades)
+
+# Ruta para obtener secciones de un grado
+@admin.route('/grades/<int:id>/sections', methods=['GET'])
+@login_required
+def get_grade_sections(id):
+    grade = Grade.query.get_or_404(id)
+    sections = [{'id': s.id, 'name': s.name} for s in grade.sections]
+    return jsonify({'sections': sections})
 
 # Ruta para obtener detalles de un grado por AJAX
 @admin.route('/grades/<int:id>/details', methods=['GET'])
 @login_required
 def get_grade_details(id):
     grade = Grade.query.get_or_404(id)
+    sections = [{'id': s.id, 'name': s.name} for s in grade.sections]
+    
     return jsonify({
         'id': grade.id,
         'name': grade.name,
         'level': grade.level,
-        'sections_count': grade.sections.count()
+        'sections': sections
     })
 
 # Ruta para crear un grado por AJAX
@@ -263,21 +259,35 @@ def create_grade_ajax():
     try:
         name = request.form.get('name')
         level = request.form.get('level')
+        sections = request.form.getlist('sections[]')
         
         if not name or not level:
             return jsonify({'success': False, 'message': 'Nombre y nivel son requeridos'}), 400
             
         grade = Grade(name=name, level=level)
         db.session.add(grade)
+        db.session.flush()  # Para obtener el ID del grado antes de crear las secciones
+        
+        # Si no se especificaron secciones, crear una sección predeterminada "U"
+        if not sections:
+            sections = ["U"]
+            
+        # Crear secciones para el grado
+        for section_name in sections:
+            if section_name.strip():  # Ignorar secciones vacías
+                section = Section(name=section_name.strip(), grade_id=grade.id)
+                db.session.add(section)
+        
         db.session.commit()
         
         return jsonify({
             'success': True, 
-            'message': 'Grado creado correctamente',
+            'message': 'Grado creado correctamente con sus secciones',
             'grade': {
                 'id': grade.id,
                 'name': grade.name,
-                'level': grade.level
+                'level': grade.level,
+                'sections_count': len(sections)
             }
         })
     except Exception as e:
@@ -314,8 +324,6 @@ def update_grade_ajax(id):
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)}), 500
 
-
-
 # Ruta para eliminar un grado por AJAX
 @admin.route('/grades/<int:id>/delete', methods=['POST'])
 @login_required
@@ -323,67 +331,26 @@ def delete_grade_ajax(id):
     try:
         grade = Grade.query.get_or_404(id)
         
-        # Verificar si tiene secciones
-        if grade.sections.count() > 0:
-            return jsonify({
-                'success': False, 
-                'message': f'No se puede eliminar el grado porque tiene {grade.sections.count()} secciones asociadas'
-            }), 400
+        # Verificar si tiene secciones con estudiantes
+        for section in grade.sections:
+            if section.students.count() > 0:
+                return jsonify({
+                    'success': False, 
+                    'message': f'No se puede eliminar el grado porque la sección {section.name} tiene estudiantes asociados'
+                }), 400
             
-        db.session.delete(grade)
+        db.session.delete(grade)  # Esto eliminará también las secciones (cascade)
         db.session.commit()
         
         return jsonify({
             'success': True, 
-            'message': 'Grado eliminado correctamente'
+            'message': 'Grado eliminado correctamente con todas sus secciones'
         })
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)}), 500
 
-# # # # RUTA PARA EDITAR GRADO SIN AJAX # # # #
-
-# @admin.route('/grades/<int:id>/edit', methods=['GET', 'POST'])
-# @login_required
-# def edit_grade(id):
-#     grade = Grade.query.get_or_404(id)
-#     form = GradeForm(obj=grade)
-    
-#     if form.validate_on_submit():
-#         grade.name = form.name.data
-#         grade.level = form.level.data
-#         grade.description = form.description.data
-        
-#         db.session.commit()
-#         flash('Grado actualizado correctamente', 'success')
-#         return redirect(url_for('admin.grades'))
-        
-#     return render_template('admin/grade_form.html', title='Editar Grado', form=form)
-
-# # # # RUTA PARA ELIMINAR GRADO SIN AJAX # # # #
-
-# @admin.route('/grades/<int:id>/delete', methods=['POST'])
-# @login_required
-# def delete_grade(id):
-#     grade = Grade.query.get_or_404(id)
-    
-#     # Verificar si hay secciones asociadas a este grado
-#     if Section.query.filter_by(grade_id=id).first():
-#         flash('No se puede eliminar este grado porque tiene secciones asociadas', 'danger')
-#         return redirect(url_for('admin.grades'))
-    
-#     db.session.delete(grade)
-#     db.session.commit()
-#     flash('Grado eliminado correctamente', 'success')
-#     return redirect(url_for('admin.grades'))
-
-# # Rutas para gestión de secciones
-# @admin.route('/sections')
-# @login_required
-# def sections():
-#     sections = Section.query.all()
-#     return render_template('admin/sections.html', title='Secciones', sections=sections)
-
+# Rutas para gestión de secciones
 @admin.route('/sections')
 @login_required
 def sections():
@@ -401,62 +368,104 @@ def sections():
     grades = Grade.query.all()
     return render_template('admin/sections.html', title='Secciones', sections=sections, grades=grades)
 
-@admin.route('/sections/new', methods=['GET', 'POST'])
+# Ruta para crear una sección por AJAX
+@admin.route('/sections/create', methods=['POST'])
 @login_required
-def new_section():
-    form = SectionForm()
-    form.grade_id.choices = [(g.id, g.name) for g in Grade.query.order_by(Grade.level).all()]
-    
-    if form.validate_on_submit():
-        section = Section(
-            name=form.name.data,
-            grade_id=form.grade_id.data,
-            capacity=form.capacity.data
-        )
+def create_section_ajax():
+    try:
+        name = request.form.get('name')
+        grade_id = request.form.get('grade_id')
+        
+        if not name or not grade_id:
+            return jsonify({'success': False, 'message': 'Nombre y grado son requeridos'}), 400
+            
+        # Verificar que el grado existe
+        grade = Grade.query.get_or_404(grade_id)
+        
+        # Verificar que no exista una sección con el mismo nombre en el mismo grado
+        existing_section = Section.query.filter_by(name=name, grade_id=grade_id).first()
+        if existing_section:
+            return jsonify({'success': False, 'message': f'Ya existe una sección {name} en este grado'}), 400
+            
+        section = Section(name=name, grade_id=grade_id)
         db.session.add(section)
         db.session.commit()
-        flash('Sección creada correctamente', 'success')
-        return redirect(url_for('admin.sections'))
         
-    return render_template('admin/section_form.html', title='Nueva Sección', form=form)
+        return jsonify({
+            'success': True, 
+            'message': 'Sección creada correctamente',
+            'section': {
+                'id': section.id,
+                'name': section.name,
+                'grade_id': section.grade_id
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
-@admin.route('/sections/<int:id>/edit', methods=['GET', 'POST'])
+# Ruta para actualizar una sección por AJAX
+@admin.route('/sections/<int:id>/update', methods=['POST'])
 @login_required
-def edit_section(id):
-    section = Section.query.get_or_404(id)
-    form = SectionForm(obj=section)
-    form.grade_id.choices = [(g.id, g.name) for g in Grade.query.order_by(Grade.level).all()]
-    
-    if form.validate_on_submit():
-        section.name = form.name.data
-        section.grade_id = form.grade_id.data
-        section.capacity = form.capacity.data
+def update_section_ajax(id):
+    try:
+        section = Section.query.get_or_404(id)
         
+        name = request.form.get('name')
+        
+        if not name:
+            return jsonify({'success': False, 'message': 'Nombre es requerido'}), 400
+            
+        # Verificar que no exista otra sección con el mismo nombre en el mismo grado
+        existing_section = Section.query.filter_by(name=name, grade_id=section.grade_id).first()
+        if existing_section and existing_section.id != section.id:
+            return jsonify({'success': False, 'message': f'Ya existe una sección {name} en este grado'}), 400
+            
+        section.name = name
         db.session.commit()
-        flash('Sección actualizada correctamente', 'success')
-        return redirect(url_for('admin.sections'))
         
-    return render_template('admin/section_form.html', title='Editar Sección', form=form)
+        return jsonify({
+            'success': True, 
+            'message': 'Sección actualizada correctamente',
+            'section': {
+                'id': section.id,
+                'name': section.name
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @admin.route('/sections/<int:id>/delete', methods=['POST'])
 @login_required
-def delete_section(id):
-    section = Section.query.get_or_404(id)
-    
-    # Verificar si hay estudiantes asociados a esta sección
-    if Student.query.filter_by(section_id=id).first():
-        flash('No se puede eliminar esta sección porque tiene estudiantes asociados', 'danger')
-        return redirect(url_for('admin.sections'))
-    
-    # Verificar si hay asignaciones de profesores a esta sección
-    if TeacherAssignment.query.filter_by(section_id=id).first():
-        flash('No se puede eliminar esta sección porque tiene asignaciones de profesores', 'danger')
-        return redirect(url_for('admin.sections'))
-    
-    db.session.delete(section)
-    db.session.commit()
-    flash('Sección eliminada correctamente', 'success')
-    return redirect(url_for('admin.sections'))
+def delete_section_ajax(id):
+    try:
+        section = Section.query.get_or_404(id)
+        
+        # Verificar si tiene estudiantes
+        if section.students.count() > 0:
+            return jsonify({
+                'success': False, 
+                'message': f'No se puede eliminar la sección porque tiene {section.students.count()} estudiantes asociados'
+            }), 400
+            
+        # Verificar que no sea la única sección del grado
+        if section.grade.sections.count() == 1:
+            return jsonify({
+                'success': False, 
+                'message': 'No se puede eliminar la única sección del grado'
+            }), 400
+            
+        db.session.delete(section)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Sección eliminada correctamente'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 # Rutas para gestión de asignaturas
 @admin.route('/subjects')
@@ -526,21 +535,81 @@ def delete_subject(id):
 @admin.route('/students')
 @login_required
 def students():
-    students = Student.query.all()
-    return render_template('admin/students.html', title='Estudiantes', students=students)
+    # Obtener parámetros de filtrado
+    grade_id = request.args.get('grade_id', type=int)
+    section_id = request.args.get('section_id', type=int)
+    search = request.args.get('search', '')
+    
+    # Consulta base
+    query = Student.query
+    
+    # Aplicar filtros
+    if grade_id:
+        sections = Section.query.filter_by(grade_id=grade_id).all()
+        section_ids = [section.id for section in sections]
+        query = query.filter(Student.section_id.in_(section_ids))
+    
+    if section_id:
+        query = query.filter_by(section_id=section_id)
+    
+    if search:
+        query = query.filter(
+            db.or_(
+                Student.first_name.ilike(f'%{search}%'),
+                Student.last_name.ilike(f'%{search}%'),
+                Student.student_id.ilike(f'%{search}%')
+            )
+        )
+    
+    # Ordenar y paginar
+    page = request.args.get('page', 1, type=int)
+    pagination = query.order_by(Student.last_name, Student.first_name).paginate(
+        page=page, per_page=20, error_out=False
+    )
+    students = pagination.items
+    
+    # Obtener grados y secciones para los filtros
+    grades = Grade.query.all()
+    sections = Section.query.filter_by(grade_id=grade_id).all() if grade_id else []
+    
+    # Obtener año académico activo y asignaturas
+    active_year = AcademicYear.query.filter_by(is_active=True).first()
+    subjects = Subject.query.all()
+    
+    # Crear formulario para nuevo estudiante
+    form = StudentForm()
+    form.section_id.choices = [(s.id, f"{s.grade.name} '{s.name}'") for s in Section.query.join(Grade).all()]
+    
+    # Configuración
+    passing_grade = 70  # Nota de aprobación (esto podría venir de la configuración)
+    
+    return render_template(
+        'admin/students.html', 
+        title='Estudiantes', 
+        students=students,
+        pagination=pagination,
+        grades=grades,
+        sections=sections,
+        active_year=active_year,
+        subjects=subjects,
+        form=form,
+        passing_grade=passing_grade,
+        now=datetime.now()
+    )
 
-@admin.route('/students/new', methods=['GET', 'POST'])
+# Ruta para crear un nuevo estudiante
+@admin.route('/students/new', methods=['POST'])
 @login_required
 def new_student():
     form = StudentForm()
-    form.section_id.choices = [(s.id, f"{s.grade.name}{s.name}") for s in Section.query.join(Grade).order_by(Grade.level, Section.name).all()]
+    form.section_id.choices = [(s.id, f"{s.grade.name} '{s.name}'") for s in Section.query.join(Grade).all()]
     
     if form.validate_on_submit():
         student = Student(
             first_name=form.first_name.data,
             last_name=form.last_name.data,
             student_id=form.student_id.data,
-            date_of_birth=form.date_of_birth.data,
+            birth_date=form.birth_date.data,
             gender=form.gender.data,
             address=form.address.data,
             phone=form.phone.data,
@@ -552,21 +621,29 @@ def new_student():
         db.session.commit()
         flash('Estudiante creado correctamente', 'success')
         return redirect(url_for('admin.students'))
-        
-    return render_template('admin/student_form.html', title='Nuevo Estudiante', form=form)
+    
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(f'Error en el campo {getattr(form, field).label.text}: {error}', 'danger')
+    
+    return redirect(url_for('admin.students'))
 
-@admin.route('/students/<int:id>/edit', methods=['GET', 'POST'])
+# Ruta para editar un estudiante
+@admin.route('/students/<int:id>/edit', methods=['POST'])
 @login_required
 def edit_student(id):
     student = Student.query.get_or_404(id)
-    form = StudentForm(obj=student)
-    form.section_id.choices = [(s.id, f"{s.grade.name}{s.name}") for s in Section.query.join(Grade).order_by(Grade.level, Section.name).all()]
+    form = StudentForm()
+    form.section_id.choices = [(s.id, f"{s.grade.name} '{s.name}'") for s in Section.query.join(Grade).all()]
+    
+    # Guardar el ID de la base de datos para validación
+    form.student_id_db = student.id
     
     if form.validate_on_submit():
         student.first_name = form.first_name.data
         student.last_name = form.last_name.data
         student.student_id = form.student_id.data
-        student.date_of_birth = form.date_of_birth.data
+        student.birth_date = form.birth_date.data
         student.gender = form.gender.data
         student.address = form.address.data
         student.phone = form.phone.data
@@ -577,30 +654,147 @@ def edit_student(id):
         db.session.commit()
         flash('Estudiante actualizado correctamente', 'success')
         return redirect(url_for('admin.students'))
-        
-    return render_template('admin/student_form.html', title='Editar Estudiante', form=form)
+    
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(f'Error en el campo {getattr(form, field).label.text}: {error}', 'danger')
+    
+    return redirect(url_for('admin.students'))
 
+# Ruta para eliminar un estudiante
 @admin.route('/students/<int:id>/delete', methods=['POST'])
 @login_required
 def delete_student(id):
     student = Student.query.get_or_404(id)
-    
-    # Verificar si hay calificaciones asociadas a este estudiante
-    if StudentGrade.query.filter_by(student_id=id).first() or FinalGrade.query.filter_by(student_id=id).first():
-        flash('No se puede eliminar este estudiante porque tiene calificaciones asociadas', 'danger')
-        return redirect(url_for('admin.students'))
-    
     db.session.delete(student)
     db.session.commit()
     flash('Estudiante eliminado correctamente', 'success')
     return redirect(url_for('admin.students'))
 
-# Rutas para gestión de profesores
-@admin.route('/teachers')
+# Ruta para importar estudiantes desde Excel
+@admin.route('/students/import', methods=['POST'])
 @login_required
-def teachers():
-    teachers = Teacher.query.all()
-    return render_template('admin/teachers.html', title='Gestión de Profesores', teachers=teachers)
+def import_students():
+    if 'file' not in request.files:
+        flash('No se ha seleccionado ningún archivo', 'danger')
+        return redirect(url_for('admin.students'))
+    
+    file = request.files['file']
+    if file.filename == '':
+        flash('No se ha seleccionado ningún archivo', 'danger')
+        return redirect(url_for('admin.students'))
+    
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        flash('El archivo debe ser de tipo Excel (.xlsx, .xls)', 'danger')
+        return redirect(url_for('admin.students'))
+    
+    section_id = request.form.get('section_id', type=int)
+    if not section_id:
+        flash('Debe seleccionar una sección', 'danger')
+        return redirect(url_for('admin.students'))
+    
+    is_active = 'is_active' in request.form
+    
+    try:
+        # Leer archivo Excel
+        df = pd.read_excel(file)
+        
+        # Validar columnas requeridas
+        required_columns = ['Cédula', 'Nombre', 'Apellido']
+        for col in required_columns:
+            if col not in df.columns:
+                flash(f'El archivo no contiene la columna requerida: {col}', 'danger')
+                return redirect(url_for('admin.students'))
+        
+        # Procesar datos
+        count = 0
+        errors = 0
+        for _, row in df.iterrows():
+            try:
+                # Verificar si ya existe un estudiante con esa cédula
+                existing = Student.query.filter_by(student_id=str(row['Cédula'])).first()
+                if existing:
+                    flash(f'Ya existe un estudiante con la cédula {row["Cédula"]}', 'warning')
+                    errors += 1
+                    continue
+                
+                # Crear nuevo estudiante
+                student = Student(
+                    first_name=row['Nombre'],
+                    last_name=row['Apellido'],
+                    student_id=str(row['Cédula']),
+                    section_id=section_id,
+                    is_active=is_active
+                )
+                
+                # Campos opcionales
+                if 'Fecha de Nacimiento' in df.columns and not pd.isna(row['Fecha de Nacimiento']):
+                    if isinstance(row['Fecha de Nacimiento'], str):
+                        student.birth_date = datetime.strptime(row['Fecha de Nacimiento'], '%d/%m/%Y').date()
+                    else:
+                        student.birth_date = row['Fecha de Nacimiento']
+                
+                if 'Género' in df.columns and not pd.isna(row['Género']):
+                    student.gender = row['Género']
+                
+                if 'Dirección' in df.columns and not pd.isna(row['Dirección']):
+                    student.address = row['Dirección']
+                
+                if 'Teléfono' in df.columns and not pd.isna(row['Teléfono']):
+                    student.phone = str(row['Teléfono'])
+                
+                if 'Email' in df.columns and not pd.isna(row['Email']):
+                    student.email = row['Email']
+                
+                db.session.add(student)
+                count += 1
+            except Exception as e:
+                errors += 1
+                flash(f'Error al procesar la fila {_+2}: {str(e)}', 'danger')
+        
+        db.session.commit()
+        flash(f'Se importaron {count} estudiantes correctamente. Errores: {errors}', 'success')
+    except Exception as e:
+        flash(f'Error al procesar el archivo: {str(e)}', 'danger')
+    
+    return redirect(url_for('admin.students'))
+
+# Ruta para descargar plantilla de importación
+@admin.route('/students/download-template')
+@login_required
+def download_student_template():
+    # Crear DataFrame con las columnas de ejemplo
+    data = {
+        'Cédula': ['12345678', '87654321'],
+        'Nombre': ['Juan', 'María'],
+        'Apellido': ['Pérez', 'González'],
+        'Fecha de Nacimiento': ['01/01/2010', '15/05/2009'],
+        'Género': ['M', 'F'],
+        'Dirección': ['Calle Principal #123', 'Avenida Central #456'],
+        'Teléfono': ['555-1234', '555-5678'],
+        'Email': ['juan@example.com', 'maria@example.com']
+    }
+    df = pd.DataFrame(data)
+    
+    # Crear archivo Excel en memoria
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Estudiantes')
+        
+        # Ajustar ancho de columnas
+        worksheet = writer.sheets['Estudiantes']
+        for i, col in enumerate(df.columns):
+            column_width = max(df[col].astype(str).map(len).max(), len(col)) + 2
+            worksheet.set_column(i, i, column_width)
+    
+    output.seek(0)
+    
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name='plantilla_estudiantes.xlsx'
+    )
 
 @admin.route('/teachers/new', methods=['GET', 'POST'])
 @login_required
@@ -981,7 +1175,7 @@ def import_export():
 
 @admin.route('/import-students', methods=['GET', 'POST'])
 @login_required
-def import_students():
+def import_students_from_excel():
     if request.method == 'POST':
         if 'file' not in request.files:
             flash('No se seleccionó ningún archivo', 'danger')

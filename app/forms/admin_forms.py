@@ -67,7 +67,7 @@ class SubjectForm(FlaskForm):
 class StudentForm(FlaskForm):
     first_name = StringField('Nombre', validators=[DataRequired(), Length(max=64)])
     last_name = StringField('Apellido', validators=[DataRequired(), Length(max=64)])
-    student_id = StringField('ID Estudiante', validators=[DataRequired(), Length(max=20)])
+    student_id = StringField('Cédula', validators=[DataRequired(), Length(max=20)])  # Este campo se usará como cédula
     birth_date = DateField('Fecha de nacimiento', validators=[Optional()])
     gender = SelectField('Género', choices=[('M', 'Masculino'), ('F', 'Femenino')], validators=[Optional()])
     address = StringField('Dirección', validators=[Optional(), Length(max=200)])
@@ -79,8 +79,9 @@ class StudentForm(FlaskForm):
     
     def validate_student_id(self, student_id):
         student = Student.query.filter_by(student_id=student_id.data).first()
-        if student is not None and student.id != getattr(self, 'student_id', None):
-            raise ValidationError('Este ID de estudiante ya está registrado.')
+        if student is not None and student.id != getattr(self, 'student_id_db', None):
+            raise ValidationError('Esta cédula ya está registrada.')
+
         
 class StudentGradeForm(FlaskForm):
     value = FloatField('Calificación', validators=[DataRequired(), NumberRange(min=0, max=100)])

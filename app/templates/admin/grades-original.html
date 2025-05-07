@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Grados{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-4 align-items-center">
+            <div class="col-sm-6">
+                <h1 class="m-0 text-gradient">
+                    <i class="fas fa-graduation-cap me-2"></i>Gestión de Grados
+                </h1>
+            </div>
+            <div class="col-sm-6">
+                <div class="float-sm-end">
+                    <button type="button" class="btn btn-primary btn-dashboard" data-bs-toggle="modal" data-bs-target="#newGradeModal">
+                        <i class="fas fa-plus-circle me-2"></i>Nuevo Grado
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="content">
+    <div class="container-fluid">
+        <!-- Mensaje informativo permanente -->
+        <div class="alert alert-info mb-4">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Información:</strong> En esta sección puede gestionar los grados académicos de la institución.
+            Los grados son la base para crear secciones y asignar materias.
+        </div>
+
+        <!-- Filtros -->
+        <div class="card dashboard-card mb-4">
+            <div class="card-body">
+                <h5 class="card-title mb-3">
+                    <i class="fas fa-filter me-2"></i>Filtros
+                </h5>
+                <form method="GET" action="{{ url_for('admin.grades') }}" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="level" class="form-label">Nivel</label>
+                        <select name="level" id="level" class="form-select">
+                            <option value="">Todos</option>
+                            <option value="Primaria" {% if request.args.get('level') == 'Primaria' %}selected{% endif %}>Primaria</option>
+                            <option value="Secundaria" {% if request.args.get('level') == 'Secundaria' %}selected{% endif %}>Secundaria</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="search" class="form-label">Buscar</label>
+                        <input type="text" class="form-control" id="search" name="search" placeholder="Nombre del grado" value="{{ request.args.get('search', '') }}">
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <div class="d-grid gap-2 d-md-flex w-100 justify-content-md-end">
+                            <a href="{{ url_for('admin.grades') }}" class="btn btn-outline-secondary me-md-2">
+                                <i class="fas fa-undo me-1"></i>Limpiar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tabla de grados por nivel -->
+        <div class="row">
+            {% for level in ['Primaria', 'Secundaria'] %}
+                {% if not request.args.get('level') or request.args.get('level') == level %}
+                <div class="col-md-12 mb-4">
+                    <div class="card dashboard-card">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">
+                                {% if level == 'Primaria' %}
+                                    <i class="fas fa-child me-2 text-primary"></i>
+                                {% else %}
+                                    <i class="fas fa-user-graduate me-2 text-success"></i>
+                                {% endif %}
+                                {{ level }}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% set found_grades = false %}
+                            {% for grade in grades %}
+                                {% if grade.level|lower == level|lower %}
+                                    {% set found_grades = true %}
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if found_grades %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle">
+                                        <thead>
+                                            <tr>
+                                                <th>Nombre</th>
+                                                <th>Secciones</th>
+                                                <th>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for grade in grades %}
+                                                {% if grade.level|lower == level|lower %}
+                                                    <tr class="animate-fade-in delay-{{ loop.index }}">
+                                                        <td>
+                                                            <div class="fw-semibold">{{ grade.name }}</div>
+                                                        </td>
+                                                        <td>
+                                                            <button class="btn btn-sm btn-outline-secondary" disabled>
+                                                                <i class="fas fa-door-open me-1"></i>
+                                                                Secciones (próximamente)
+                                                            </button>
+                                                        </td>
+                                                        <td>
+                                                            <div class="btn-group" role="group">
+                                                                <button type="button" class="btn btn-sm btn-outline-primary edit-grade-btn" 
+                                                                        data-bs-toggle="modal" 
+                                                                        data-bs-target="#editGradeModal{{ grade.id }}"
+                                                                        data-id="{{ grade.id }}" 
+                                                                        title="Editar">
+                                                                    <i class="fas fa-edit"></i>
+                                                                </button>
+                                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                                        data-bs-toggle="modal" 
+                                                                        data-bs-target="#deleteGradeModal{{ grade.id }}" 
+                                                                        title="Eliminar">
+                                                                    <i class="fas fa-trash"></i>
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    No hay grados registrados para el nivel {{ level }}.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal para crear nuevo grado -->
+<div class="modal fade" id="newGradeModal" tabindex="-1" aria-labelledby="newGradeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newGradeModalLabel">Nuevo Grado</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="newGradeForm">
+                <div class="modal-body">
+                    <div id="newGradeFormErrors"></div>
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="name" name="name" placeholder="Ej: Primero, Segundo, etc." required>
+                        <div class="form-text">Ingrese el nombre del grado sin incluir el nivel.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="level" class="form-label">Nivel</label>
+                        <select class="form-select" id="level" name="level" required>
+                            <option value="" selected disabled>Seleccione un nivel</option>
+                            <option value="Primaria">Primaria</option>
+                            <option value="Secundaria">Secundaria</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="newGradeSubmitBtn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modales para editar y eliminar grados -->
+{% for grade in grades %}
+    <!-- Modal para editar grado -->
+    <div class="modal fade" id="editGradeModal{{ grade.id }}" tabindex="-1" aria-labelledby="editGradeModalLabel{{ grade.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editGradeModalLabel{{ grade.id }}">Editar Grado</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div id="editModalContent{{ grade.id }}">
+                    <form class="edit-grade-form" data-id="{{ grade.id }}">
+                        <div class="modal-body">
+                            <div id="editGradeFormErrors{{ grade.id }}"></div>
+                            <div class="mb-3">
+                                <label for="name{{ grade.id }}" class="form-label">Nombre</label>
+                                <input type="text" class="form-control" id="name{{ grade.id }}" name="name" value="{{ grade.name }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="level{{ grade.id }}" class="form-label">Nivel</label>
+                                <select class="form-select" id="level{{ grade.id }}" name="level" required>
+                                    <option value="Primaria" {% if grade.level == 'Primaria' %}selected{% endif %}>Primaria</option>
+                                    <option value="Secundaria" {% if grade.level == 'Secundaria' %}selected{% endif %}>Secundaria</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary" id="editGradeSubmitBtn{{ grade.id }}">Guardar Cambios</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para eliminar grado -->
+    <div class="modal fade" id="deleteGradeModal{{ grade.id }}" tabindex="-1" aria-labelledby="deleteGradeModalLabel{{ grade.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteGradeModalLabel{{ grade.id }}">Eliminar Grado</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="deleteGradeFormErrors{{ grade.id }}"></div>
+                    <p>¿Está seguro de que desea eliminar el grado <strong>{{ grade.name }}</strong>?</p>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Esta acción no se puede deshacer.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <form class="delete-grade-form" data-id="{{ grade.id }}">
+                        <button type="submit" class="btn btn-danger" id="deleteGradeSubmitBtn{{ grade.id }}">Eliminar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    $(document).ready(function() {
+        // Cargar datos del grado en el modal de edición
+        $('.edit-grade-btn').click(function() {
+            const gradeId = $(this).data('id');
+            
+            // Mostrar spinner mientras carga
+            $('#editModalContent' + gradeId).html('<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Cargando...</span></div></div>');
+            
+            // Cargar datos por AJAX
+            $.ajax({
+                url: '/admin/grades/' + gradeId + '/details',
+                type: 'GET',
+                success: function(response) {
+                    // Llenar el formulario con los datos
+                    $('#name' + gradeId).val(response.name);
+                    $('#level' + gradeId).val(response.level);
+                },
+                error: function(xhr) {
+                    let errorMsg = 'Error al cargar los datos';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMsg = xhr.responseJSON.message;
+                    }
+                    $('#editModalContent' + gradeId).html('<div class="alert alert-danger">' + errorMsg + '</div>');
+                }
+            });
+        });
+        
+        // Enviar formulario de nuevo grado por AJAX
+        $('#newGradeForm').submit(function(e) {
+            e.preventDefault();
+            
+            const formData = $(this).serialize();
+            
+            $.ajax({
+                url: '/admin/grades/create',
+                type: 'POST',
+                data: formData,
+                beforeSend: function() {
+                    $('#newGradeSubmitBtn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...');
+                },
+                success: function(response) {
+                    // Mostrar mensaje de éxito
+                    const alertHtml = '<div class="alert alert-success alert-dismissible fade show" role="alert">' +
+                                     response.message +
+                                     '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' +
+                                     '</div>';
+                    $('.content-header').after(alertHtml);
+                    
+                    // Cerrar modal y recargar página
+                    $('#newGradeModal').modal('hide');
+                    setTimeout(function() {
+                        location.reload();
+                    }, 1000);
+                },
+                error: function(xhr) {
+                    let errorMsg = 'Error al crear el grado';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMsg = xhr.responseJSON.message;
+                    }
+                    $('#newGradeFormErrors').html('<div class="alert alert-danger">' + errorMsg + '</div>');
+                    $('#newGradeSubmitBtn').prop('disabled', false).text('Guardar');
+                }
+            });
+        });
+        
+        // Enviar formulario de edición por AJAX
+        $('.edit-grade-form').submit(function(e) {
+            e.preventDefault();
+            
+            const formData = $(this).serialize();
+            const gradeId = $(this).data('id');
+            
+            $.ajax({
+                url: '/admin/grades/' + gradeId + '/update',
+                type: 'POST',
+                data: formData,
+                beforeSend: function() {
+                    $('#editGradeSubmitBtn' + gradeId).prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...');
+                },
+                success: function(response) {
+                    // Mostrar mensaje de éxito
+                    const alertHtml = '<div class="alert alert-success alert-dismissible fade show" role="alert">' +
+                                     response.message +
+                                     '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' +
+                                     '</div>';
+                    $('.content-header').after(alertHtml);
+                    
+                    // Cerrar modal y recargar página
+                    $('#editGradeModal' + gradeId).modal('hide');
+                    setTimeout(function() {
+                        location.reload();
+                    }, 1000);
+                },
+                error: function(xhr) {
+                    let errorMsg = 'Error al actualizar el grado';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMsg = xhr.responseJSON.message;
+                    }
+                    $('#editGradeFormErrors' + gradeId).html('<div class="alert alert-danger">' + errorMsg + '</div>');
+                    $('#editGradeSubmitBtn' + gradeId).prop('disabled', false).text('Guardar Cambios');
+                }
+            });
+        });
+        
+        // Eliminar grado por AJAX
+        $('.delete-grade-form').submit(function(e) {
+            e.preventDefault();
+            
+            const gradeId = $(this).data('id');
+            
+            $.ajax({
+                url: '/admin/grades/' + gradeId + '/delete',
+                type: 'POST',
+                beforeSend: function() {
+                    $('#deleteGradeSubmitBtn' + gradeId).prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Eliminando...');
+                },
+                success: function(response) {
+                    // Mostrar mensaje de éxito
+                    const alertHtml = '<div class="alert alert-success alert-dismissible fade show" role="alert">' +
+                                     response.message +
+                                     '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' +
+                                     '</div>';
+                    $('.content-header').after(alertHtml);
+                    
+                    // Cerrar modal y recargar página
+                    $('#deleteGradeModal' + gradeId).modal('hide');
+                    setTimeout(function() {
+                        location.reload();
+                    }, 1000);
+                },
+                error: function(xhr) {
+                    let errorMsg = 'Error al eliminar el grado';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMsg = xhr.responseJSON.message;
+                    }
+                    $('#deleteGradeFormErrors' + gradeId).html('<div class="alert alert-danger">' + errorMsg + '</div>');
+                    $('#deleteGradeSubmitBtn' + gradeId).prop('disabled', false).text('Eliminar');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}
