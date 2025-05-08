@@ -1,0 +1,75 @@
+<div id="editStudentFormErrors"></div>
+
+<form id="editStudentForm" action="{{ url_for('admin.edit_student_ajax', id=student.id) }}" method="POST">
+    {{ form.csrf_token }}
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label for="first_name" class="form-label">Nombre</label>
+            <input type="text" class="form-control" id="first_name" name="first_name" value="{{ student.first_name }}" required>
+        </div>
+        <div class="col-md-6">
+            <label for="last_name" class="form-label">Apellido</label>
+            <input type="text" class="form-control" id="last_name" name="last_name" value="{{ student.last_name }}" required>
+        </div>
+    </div>
+    <div class="mb-3">
+        <label for="student_id" class="form-label">Cédula</label>
+        <input type="text" class="form-control" id="student_id" name="student_id" value="{{ student.student_id }}" required>
+        <div class="form-text">Ingrese el número de cédula sin puntos ni guiones.</div>
+    </div>
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label for="birth_date" class="form-label">Fecha de Nacimiento</label>
+            <input type="date" class="form-control" id="birth_date" name="birth_date" value="{{ student.birth_date.strftime('%Y-%m-%d') if student.birth_date else '' }}">
+        </div>
+        <div class="col-md-6">
+            <label for="gender" class="form-label">Género</label>
+            <select class="form-select" id="gender" name="gender">
+                <option value="" {% if not student.gender %}selected{% endif %}>Seleccionar...</option>
+                <option value="M" {% if student.gender == 'M' %}selected{% endif %}>Masculino</option>
+                <option value="F" {% if student.gender == 'F' %}selected{% endif %}>Femenino</option>
+            </select>
+        </div>
+    </div>
+    <div class="mb-3">
+        <label for="address" class="form-label">Dirección</label>
+        <input type="text" class="form-control" id="address" name="address" value="{{ student.address or '' }}">
+    </div>
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label for="phone" class="form-label">Teléfono</label>
+            <input type="text" class="form-control" id="phone" name="phone" value="{{ student.phone or '' }}">
+        </div>
+        <div class="col-md-6">
+            <label for="email" class="form-label">Email</label>
+            <input type="email" class="form-control" id="email" name="email" value="{{ student.email or '' }}">
+        </div>
+    </div>
+    <div class="mb-3">
+        <label for="section_id" class="form-label">Sección</label>
+        <select class="form-select" id="section_id" name="section_id" required>
+            <option value="" disabled>Seleccionar sección...</option>
+            {% for grade in grades %}
+                <optgroup label="{{ grade.name }} ({{ grade.level }})">
+                    {% for section in grade.sections %}
+                        <option value="{{ section.id }}" {% if student.section_id == section.id %}selected{% endif %}>
+                            {{ grade.name }} "{{ section.name }}"
+                        </option>
+                    {% endfor %}
+                </optgroup>
+            {% endfor %}
+        </select>
+    </div>
+    
+    <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="is_active" name="is_active" {% if student.is_active %}checked{% endif %}>
+        <label class="form-check-label" for="is_active">
+            Estudiante Activo
+        </label>
+    </div>
+    
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+    </div>
+</form>

@@ -671,6 +671,144 @@ def delete_student(id):
     flash('Estudiante eliminado correctamente', 'success')
     return redirect(url_for('admin.students'))
 
+# Ruta para obtener detalles de un estudiante (para el modal de ver)
+@admin.route('/students/<int:id>/details', methods=['GET'])
+@login_required
+def get_student_details(id):
+    student = Student.query.get_or_404(id)
+    return render_template('admin/partials/student_details.html', student=student)
+
+# Ruta para obtener el formulario de edición de un estudiante
+@admin.route('/students/<int:id>/edit-form', methods=['GET'])
+@login_required
+def get_student_edit_form(id):
+    student = Student.query.get_or_404(id)
+    form = StudentForm(obj=student)
+    form.section_id.choices = [(s.id, f"{s.grade.name} '{s.name}'") for s in Section.query.join(Grade).all()]
+    return render_template('admin/partials/student_edit_form.html', form=form, student=student)
+
+# Ruta para obtener el formulario de confirmación de eliminación
+@admin.route('/students/<int:id>/delete-form', methods=['GET'])
+@login_required
+def get_student_delete_form(id):
+    student = Student.query.get_or_404(id)
+    return render_template('admin/partials/student_delete_form.html', student=student)
+
+# Ruta para editar un estudiante (versión AJAX)
+@admin.route('/students/<int:id>/edit-ajax', methods=['POST'])
+@login_required
+def edit_student_ajax(id):
+    student = Student.query.get_or_404(id)
+    form = StudentForm()
+    form.section_id.choices = [(s.id, f"{s.grade.name} '{s.name}'") for s in Section.query.join(Grade).all()]
+    
+    if form.validate_on_submit():
+        student.first_name = form.first_name.data
+        student.last_name = form.last_name.data
+        student.student_id = form.student_id.data
+        student.birth_date = form.birth_date.data
+        student.gender = form.gender.data
+        student.address = form.address.data
+        student.phone = form.phone.data
+        student.email = form.email.data
+        student.section_id = form.section_id.data
+        student.is_active = form.is_active.data
+        
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Estudiante actualizado correctamente'})
+    
+    errors = []
+    for field, field_errors in form.errors.items():
+        for error in field_errors:
+            errors.append(f"{getattr(form, field).label.text}: {error}")
+    
+    return jsonify({'success': False, 'message': 'Error en el formulario', 'errors': errors})
+
+# Ruta para eliminar un estudiante (versión AJAX)
+@admin.route('/students/<int:id>/delete-ajax', methods=['POST'])
+@login_required
+def delete_student_ajax(id):
+    student = Student.query.get_or_404(id)
+    
+    try:
+        db.session.delete(student)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Estudiante eliminado correctamente'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Error al eliminar el estudiante: {str(e)}'})
+    
+# Rutas para iframes
+@admin.route('/students/<int:id>/view-iframe')
+@login_required
+def student_view_iframe(id):
+    student = Student.query.get_or_404(id)
+    return render_template('admin/iframes/student_view.html', student=student, now=datetime.now())
+
+@admin.route('/students/<int:id>/edit-iframe')
+@login_required
+def student_edit_iframe(id):
+    student = Student.query.get_or_404(id)
+    form = StudentForm(obj=student)
+    form.section_id.choices = [(s.id, f"{s.grade.name} '{s.name}'") for s in Section.query.join(Grade).order_by(Grade.level, Section.name).all()]
+    grades = Grade.query.all()
+    return render_template('admin/iframes/student_edit.html', form=form, student=student, grades=grades)
+
+@admin.route('/students/<int:id>/edit-iframe-submit', methods=['POST'])
+@login_required
+def student_edit_iframe_submit(id):
+    student = Student.query.get_or_404(id)
+    form = StudentForm()
+    form.section_id.choices = [(s.id, f"{s.grade.name} '{s.name}'") for s in Section.query.join(Grade).order_by(Grade.level, Section.name).all()]
+    
+    if form.validate_on_submit():
+        student.first_name = form.first_name.data
+        student.last_name = form.last_name.data
+        student.student_id = form.student_id.data
+        student.birth_date = form.birth_date.data
+        student.gender = form.gender.data
+        student.address = form.address.data
+        student.phone = form.phone.data
+        student.email = form.email.data
+        student.section_id = form.section_id.data
+        student.is_active = form.is_active.data
+        
+        try:
+            db.session.commit()
+            flash('Estudiante actualizado correctamente', 'success')
+            return render_template('admin/iframes/success.html', message='Estudiante actualizado correctamente', modal_id='editStudentModal', reload=True)
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al actualizar el estudiante: {str(e)}', 'danger')
+    
+    return render_template('admin/iframes/student_edit.html', form=form, student=student, grades=Grade.query.all())
+
+@admin.route('/students/<int:id>/delete-iframe')
+@login_required
+def student_delete_iframe(id):
+    student = Student.query.get_or_404(id)
+    return render_template('admin/iframes/student_delete.html', student=student)
+
+@admin.route('/students/<int:id>/delete-iframe-submit', methods=['POST'])
+@login_required
+def student_delete_iframe_submit(id):
+    student = Student.query.get_or_404(id)
+    
+    # Verificar si hay calificaciones asociadas a este estudiante
+    if StudentGrade.query.filter_by(student_id=id).first() or FinalGrade.query.filter_by(student_id=id).first():
+        flash('No se puede eliminar este estudiante porque tiene calificaciones asociadas', 'danger')
+        return render_template('admin/iframes/student_delete.html', student=student)
+    
+    try:
+        db.session.delete(student)
+        db.session.commit()
+        flash('Estudiante eliminado correctamente', 'success')
+        return render_template('admin/iframes/success.html', message='Estudiante eliminado correctamente', modal_id='deleteStudentModal', reload=True)
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al eliminar el estudiante: {str(e)}', 'danger')
+        return render_template('admin/iframes/student_delete.html', student=student)
+
 # Ruta para importar estudiantes desde Excel
 @admin.route('/students/import', methods=['POST'])
 @login_required

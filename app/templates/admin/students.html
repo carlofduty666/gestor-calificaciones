@@ -7,12 +7,12 @@
     <div class="container-fluid">
         <div class="row mb-4 align-items-center">
             <div class="col-sm-6">
-                <h1 class="m-0 text-gradient">
+                <h1 class="m-0 text-gradient animate-fade-in">
                     <i class="fas fa-user-graduate me-2"></i>Gestión de Estudiantes
                 </h1>
             </div>
             <div class="col-sm-6">
-                <div class="float-sm-end">
+                <div class="float-sm-end animate-fade-in">
                     <button type="button" class="btn btn-primary btn-dashboard" data-bs-toggle="modal" data-bs-target="#newStudentModal">
                         <i class="fas fa-plus-circle me-2"></i>Nuevo Estudiante
                     </button>
@@ -28,7 +28,7 @@
 <div class="content">
     <div class="container-fluid">
         <!-- Mensaje informativo -->
-        <div class="permanent-alert permanent-alert-info mb-4">
+        <div class="permanent-alert permanent-alert-info mb-4 animate-fade-in delay-1">
             <i class="fas fa-info-circle me-2"></i>
             <strong>Información:</strong> En esta sección puede gestionar los estudiantes de la institución.
             Las calificaciones son asignadas por los profesores desde su interfaz.
@@ -36,7 +36,7 @@
 
         <!-- Filtros -->
         <div class="card dashboard-card mb-4">
-            <div class="card-body">
+            <div class="card-body animate-fade-in delay-2">
                 <h5 class="card-title mb-3">
                     <i class="fas fa-filter me-2"></i>Filtros
                 </h5>
@@ -119,7 +119,7 @@
                                                     <small class="text-muted">
                                                         {% if student.birth_date %}
                                                             {{ student.birth_date.strftime('%d/%m/%Y') }} 
-                                                            ({{ ((now - student.birth_date).days / 365)|int }} años)
+                                                            ({{ ((now.date() - student.birth_date).days / 365)|int }} años)
                                                         {% else %}
                                                             Edad no disponible
                                                         {% endif %}
@@ -171,296 +171,6 @@
                                             </div>
                                         </td>
                                     </tr>
-
-                                    <!-- Modal para ver detalles del estudiante -->
-                                    <div class="modal fade" id="viewStudentModal{{ student.id }}" tabindex="-1" aria-labelledby="viewStudentModalLabel{{ student.id }}" aria-hidden="true">
-                                        <div class="modal-dialog modal-lg">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="viewStudentModalLabel{{ student.id }}">
-                                                        Detalles del Estudiante
-                                                    </h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                </div>
-                                                <div class="modal-body">
-                                                    <div class="row">
-                                                        <div class="col-md-4 text-center mb-4">
-                                                            <div class="avatar-circle-large bg-primary text-white mx-auto mb-3">
-                                                                {{ student.first_name[0] }}{{ student.last_name[0] }}
-                                                            </div>
-                                                            <h5>{{ student.first_name }} {{ student.last_name }}</h5>
-                                                            <p class="text-muted">
-                                                                Cédula: {{ student.student_id }}<br>
-                                                                {{ student.section.grade.name }} "{{ student.section.name }}" - {{ student.section.grade.level }}
-                                                            </p>
-                                                            <div class="mt-3">
-                                                                {% if student.is_active %}
-                                                                    <span class="badge bg-success">Activo</span>
-                                                                {% else %}
-                                                                    <span class="badge bg-danger">Inactivo</span>
-                                                                {% endif %}
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-md-8">
-                                                            <h6 class="border-bottom pb-2 mb-3">Información Personal</h6>
-                                                            <div class="row mb-2">
-                                                                <div class="col-md-4 text-muted">Fecha de Nacimiento:</div>
-                                                                <div class="col-md-8">
-                                                                    {% if student.birth_date %}
-                                                                        {{ student.birth_date.strftime('%d/%m/%Y') }} 
-                                                                        ({{ ((now - student.birth_date).days / 365)|int }} años)
-                                                                    {% else %}
-                                                                        No disponible
-                                                                    {% endif %}
-                                                                </div>
-                                                            </div>
-                                                            <div class="row mb-2">
-                                                                <div class="col-md-4 text-muted">Género:</div>
-                                                                <div class="col-md-8">
-                                                                    {% if student.gender == 'M' %}
-                                                                        Masculino
-                                                                    {% elif student.gender == 'F' %}
-                                                                        Femenino
-                                                                    {% else %}
-                                                                        No especificado
-                                                                    {% endif %}
-                                                                </div>
-                                                            </div>
-                                                            <div class="row mb-2">
-                                                                <div class="col-md-4 text-muted">Dirección:</div>
-                                                                <div class="col-md-8">{{ student.address or 'No disponible' }}</div>
-                                                            </div>
-                                                            <div class="row mb-2">
-                                                                <div class="col-md-4 text-muted">Teléfono:</div>
-                                                                <div class="col-md-8">{{ student.phone or 'No disponible' }}</div>
-                                                            </div>
-                                                            <div class="row mb-2">
-                                                                <div class="col-md-4 text-muted">Email:</div>
-                                                                <div class="col-md-8">{{ student.email or 'No disponible' }}</div>
-                                                            </div>
-                                                            
-                                                            <h6 class="border-bottom pb-2 mb-3 mt-4">Información Académica</h6>
-                                                            <div class="row mb-2">
-                                                                <div class="col-md-4 text-muted">Grado:</div>
-                                                                <div class="col-md-8">{{ student.section.grade.name }} - {{ student.section.grade.level }}</div>
-                                                            </div>
-                                                            <div class="row mb-2">
-                                                                <div class="col-md-4 text-muted">Sección:</div>
-                                                                <div class="col-md-8">{{ student.section.name }}</div>
-                                                            </div>
-                                                            <div class="row mb-2">
-                                                                <div class="col-md-4 text-muted">Fecha de Registro:</div>
-                                                                <div class="col-md-8">{{ student.created_at.strftime('%d/%m/%Y') }}</div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <!-- Pestaña para boletín de calificaciones -->
-                                                    <ul class="nav nav-tabs mt-4" id="studentTabs{{ student.id }}" role="tablist">
-                                                        <li class="nav-item" role="presentation">
-                                                            <button class="nav-link active" id="grades-tab{{ student.id }}" data-bs-toggle="tab" 
-                                                                    data-bs-target="#grades{{ student.id }}" type="button" role="tab" 
-                                                                    aria-controls="grades{{ student.id }}" aria-selected="true">
-                                                                Boletín de Calificaciones
-                                                            </button>
-                                                        </li>
-                                                    </ul>
-                                                    <div class="tab-content p-3 border border-top-0 rounded-bottom" id="studentTabsContent{{ student.id }}">
-                                                        <div class="tab-pane fade show active" id="grades{{ student.id }}" role="tabpanel" aria-labelledby="grades-tab{{ student.id }}">
-                                                            {% if student.final_grades.count() > 0 %}
-                                                                <div class="table-responsive">
-                                                                    <table class="table table-bordered table-sm">
-                                                                        <thead class="table-light">
-                                                                            <tr>
-                                                                                <th>Asignatura</th>
-                                                                                {% for period in active_year.periods %}
-                                                                                    <th class="text-center">{{ period.name }}</th>
-                                                                                {% endfor %}
-                                                                                <th class="text-center">Definitiva</th>
-                                                                            </tr>
-                                                                        </thead>
-                                                                        <tbody>
-                                                                            {% for subject in subjects %}
-                                                                                <tr>
-                                                                                    <td>{{ subject.name }}</td>
-                                                                                    {% for period in active_year.periods %}
-                                                                                        {% set found = false %}
-                                                                                        {% for grade in student.final_grades %}
-                                                                                            {% if grade.subject_id == subject.id and grade.period_id == period.id %}
-                                                                                                <td class="text-center">
-                                                                                                    <span class="badge {% if grade.value >= passing_grade %}bg-success{% else %}bg-danger{% endif %}">
-                                                                                                        {{ grade.value }}
-                                                                                                    </span>
-                                                                                                </td>
-                                                                                                {% set found = true %}
-                                                                                            {% endif %}
-                                                                                        {% endfor %}
-                                                                                        {% if not found %}
-                                                                                            <td class="text-center">-</td>
-                                                                                        {% endif %}
-                                                                                    {% endfor %}
-                                                                                    
-                                                                                    <!-- Calcular definitiva -->
-                                                                                    {% set total = 0 %}
-                                                                                    {% set count = 0 %}
-                                                                                    {% for grade in student.final_grades %}
-                                                                                        {% if grade.subject_id == subject.id %}
-                                                                                            {% set total = total + grade.value %}
-                                                                                            {% set count = count + 1 %}
-                                                                                        {% endif %}
-                                                                                    {% endfor %}
-                                                                                    
-                                                                                    {% if count > 0 %}
-                                                                                        {% set final = total / count %}
-                                                                                        <td class="text-center">
-                                                                                            <span class="badge {% if final >= passing_grade %}bg-success{% else %}bg-danger{% endif %}">
-                                                                                                {{ final|round(1) }}
-                                                                                            </span>
-                                                                                        </td>
-                                                                                    {% else %}
-                                                                                        <td class="text-center">-</td>
-                                                                                    {% endif %}
-                                                                                </tr>
-                                                                            {% endfor %}
-                                                                        </tbody>
-                                                                    </table>
-                                                                </div>
-                                                                <div class="text-end mt-3">
-                                                                    <a href="{{ url_for('reports.student_report', student_id=student.id) }}" class="btn btn-sm btn-primary" target="_blank">
-                                                                        <i class="fas fa-file-pdf me-1"></i> Ver Boletín Completo
-                                                                    </a>
-                                                                </div>
-                                                            {% else %}
-                                                                <div class="permanent-alert permanent-alert-info">
-                                                                    <i class="fas fa-info-circle me-2"></i>
-                                                                    No hay calificaciones registradas para este estudiante.
-                                                                </div>
-                                                            {% endif %}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Modal para editar estudiante -->
-                                    <div class="modal fade" id="editStudentModal{{ student.id }}" tabindex="-1" aria-labelledby="editStudentModalLabel{{ student.id }}" aria-hidden="true">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="editStudentModalLabel{{ student.id }}">Editar Estudiante</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                </div>
-                                                <form action="{{ url_for('admin.edit_student', id=student.id) }}" method="POST">
-                                                    <div class="modal-body">
-                                                        {{ form.csrf_token }}
-                                                        <div class="row mb-3">
-                                                            <div class="col-md-6">
-                                                                <label for="first_name{{ student.id }}" class="form-label">Nombre</label>
-                                                                <input type="text" class="form-control" id="first_name{{ student.id }}" name="first_name" value="{{ student.first_name }}" required>
-                                                            </div>
-                                                            <div class="col-md-6">
-                                                                <label for="last_name{{ student.id }}" class="form-label">Apellido</label>
-                                                                <input type="text" class="form-control" id="last_name{{ student.id }}" name="last_name" value="{{ student.last_name }}" required>
-                                                            </div>
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label for="student_id{{ student.id }}" class="form-label">Cédula</label>
-                                                            <input type="text" class="form-control" id="student_id{{ student.id }}" name="student_id" value="{{ student.student_id }}" required>
-                                                        </div>
-                                                        <div class="row mb-3">
-                                                            <div class="col-md-6">
-                                                                <label for="birth_date{{ student.id }}" class="form-label">Fecha de Nacimiento</label>
-                                                                <input type="date" class="form-control" id="birth_date{{ student.id }}" name="birth_date" value="{{ student.birth_date.strftime('%Y-%m-%d') if student.birth_date else '' }}">
-                                                            </div>
-                                                            <div class="col-md-6">
-                                                                <label for="gender{{ student.id }}" class="form-label">Género</label>
-                                                                <select class="form-select" id="gender{{ student.id }}" name="gender">
-                                                                    <option value="">Seleccionar...</option>
-                                                                    <option value="M" {% if student.gender == 'M' %}selected{% endif %}>Masculino</option>
-                                                                    <option value="F" {% if student.gender == 'F' %}selected{% endif %}>Femenino</option>
-                                                                </select>
-                                                            </div>
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label for="address{{ student.id }}" class="form-label">Dirección</label>
-                                                            <input type="text" class="form-control" id="address{{ student.id }}" name="address" value="{{ student.address or '' }}">
-                                                        </div>
-                                                        <div class="row mb-3">
-                                                            <div class="col-md-6">
-                                                                <label for="phone{{ student.id }}" class="form-label">Teléfono</label>
-                                                                <input type="text" class="form-control" id="phone{{ student.id }}" name="phone" value="{{ student.phone or '' }}">
-                                                            </div>
-                                                            <div class="col-md-6">
-                                                                <label for="email{{ student.id }}" class="form-label">Email</label>
-                                                                <input type="email" class="form-control" id="email{{ student.id }}" name="email" value="{{ student.email or '' }}">
-                                                            </div>
-                                                        </div>
-                                                        <div class="row mb-3">
-                                                            <div class="col-md-6">
-                                                                <label for="grade_id{{ student.id }}" class="form-label">Grado</label>
-                                                                <select class="form-select grade-select" id="grade_id{{ student.id }}" name="grade_id" data-student-id="{{ student.id }}" required>
-                                                                    {% for grade in grades %}
-                                                                        <option value="{{ grade.id }}" {% if student.section.grade_id == grade.id %}selected{% endif %}>
-                                                                            {{ grade.name }} ({{ grade.level }})
-                                                                        </option>
-                                                                    {% endfor %}
-                                                                </select>
-                                                            </div>
-                                                            <div class="col-md-6">
-                                                                <label for="section_id{{ student.id }}" class="form-label">Sección</label>
-                                                                <select class="form-select" id="section_id{{ student.id }}" name="section_id" required>
-                                                                    {% for section in student.section.grade.sections %}
-                                                                        <option value="{{ section.id }}" {% if student.section_id == section.id %}selected{% endif %}>
-                                                                            {{ section.name }}
-                                                                        </option>
-                                                                    {% endfor %}
-                                                                </select>
-                                                            </div>
-                                                        </div>
-                                                        <div class="form-check mb-3">
-                                                            <input class="form-check-input" type="checkbox" id="is_active{{ student.id }}" name="is_active" {% if student.is_active %}checked{% endif %}>
-                                                            <label class="form-check-label" for="is_active{{ student.id }}">
-                                                                Estudiante Activo
-                                                            </label>
-                                                        </div>
-                                                    </div>
-                                                    <div class="modal-footer">
-                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
-                                                    </div>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Modal para eliminar estudiante -->
-                                    <div class="modal fade" id="deleteStudentModal{{ student.id }}" tabindex="-1" aria-labelledby="deleteStudentModalLabel{{ student.id }}" aria-hidden="true">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="deleteStudentModalLabel{{ student.id }}">Eliminar Estudiante</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                </div>
-                                                <div class="modal-body">
-                                                    <p>¿Está seguro de que desea eliminar al estudiante <strong>{{ student.first_name }} {{ student.last_name }}</strong>?</p>
-                                                    <div class="permanente-alert permanent-alert-warning">
-                                                        <i class="fas fa-exclamation-triangle me-2"></i>
-                                                        Esta acción eliminará todas las calificaciones asociadas y no se puede deshacer.
-                                                    </div>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                    <form action="{{ url_for('admin.delete_student', id=student.id) }}" method="POST">
-                                                        <button type="submit" class="btn btn-danger">Eliminar</button>
-                                                    </form>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -526,167 +236,435 @@
             </ul>
         </nav>
         {% endif %}
-    </div>
-</div>
 
-<!-- Modal para crear nuevo estudiante -->
-<div class="modal fade" id="newStudentModal" tabindex="-1" aria-labelledby="newStudentModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="newStudentModalLabel">Nuevo Estudiante</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form action="{{ url_for('admin.new_student') }}" method="POST">
-                <div class="modal-body">
-                    {{ form.csrf_token }}
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="first_name" class="form-label">Nombre</label>
-                            <input type="text" class="form-control" id="first_name" name="first_name" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="last_name" class="form-label">Apellido</label>
-                            <input type="text" class="form-control" id="last_name" name="last_name" required>
-                        </div>
+        <!-- Modales para cada estudiante -->
+        {% for student in students %}
+        <!-- Modal para ver detalles del estudiante -->
+        <div class="modal fade" id="viewStudentModal{{ student.id }}" tabindex="-1" aria-labelledby="viewStudentModalLabel{{ student.id }}" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="viewStudentModalLabel{{ student.id }}">
+                            Detalles del Estudiante
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                    <div class="mb-3">
-                        <label for="student_id" class="form-label">Cédula</label>
-                        <input type="text" class="form-control" id="student_id" name="student_id" required>
-                        <div class="form-text">Ingrese el número de cédula sin puntos ni guiones.</div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="birth_date" class="form-label">Fecha de Nacimiento</label>
-                            <input type="date" class="form-control" id="birth_date" name="birth_date">
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-4 text-center mb-4">
+                                <div class="avatar-circle-large bg-primary text-white mx-auto mb-3">
+                                    {{ student.first_name[0] }}{{ student.last_name[0] }}
+                                </div>
+                                <h5>{{ student.first_name }} {{ student.last_name }}</h5>
+                                <p class="text-muted">
+                                    Cédula: {{ student.student_id }}<br>
+                                    {{ student.section.grade.name }} "{{ student.section.name }}" - {{ student.section.grade.level }}
+                                </p>
+                                <div class="mt-3">
+                                    {% if student.is_active %}
+                                        <span class="badge bg-success">Activo</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Inactivo</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-8">
+                                <h6 class="border-bottom pb-2 mb-3">Información Personal</h6>
+                                <div class="row mb-2">
+                                    <div class="col-md-4 text-muted">Fecha de Nacimiento:</div>
+                                    <div class="col-md-8">
+                                        {% if student.birth_date %}
+                                            {{ student.birth_date.strftime('%d/%m/%Y') }} 
+                                            ({{ ((now.date() - student.birth_date).days / 365)|int }} años)
+                                        {% else %}
+                                            No disponible
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col-md-4 text-muted">Género:</div>
+                                    <div class="col-md-8">
+                                        {% if student.gender == 'M' %}
+                                            Masculino
+                                        {% elif student.gender == 'F' %}
+                                            Femenino
+                                        {% else %}
+                                            No especificado
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col-md-4 text-muted">Dirección:</div>
+                                    <div class="col-md-8">{{ student.address or 'No disponible' }}</div>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col-md-4 text-muted">Teléfono:</div>
+                                    <div class="col-md-8">{{ student.phone or 'No disponible' }}</div>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col-md-4 text-muted">Email:</div>
+                                    <div class="col-md-8">{{ student.email or 'No disponible' }}</div>
+                                </div>
+                                
+                                <h6 class="border-bottom pb-2 mb-3 mt-4">Información Académica</h6>
+                                <div class="row mb-2">
+                                    <div class="col-md-4 text-muted">Grado:</div>
+                                    <div class="col-md-8">{{ student.section.grade.name }} - {{ student.section.grade.level }}</div>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col-md-4 text-muted">Sección:</div>
+                                    <div class="col-md-8">{{ student.section.name }}</div>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col-md-4 text-muted">Fecha de Registro:</div>
+                                    <div class="col-md-8">{{ student.created_at.strftime('%d/%m/%Y') }}</div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <label for="gender" class="form-label">Género</label>
-                            <select class="form-select" id="gender" name="gender">
-                                <option value="" selected>Seleccionar...</option>
-                                <option value="M">Masculino</option>
-                                <option value="F">Femenino</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="address" class="form-label">Dirección</label>
-                        <input type="text" class="form-control" id="address" name="address">
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="phone" class="form-label">Teléfono</label>
-                            <input type="text" class="form-control" id="phone" name="phone">
-                        </div>
-                        <div class="col-md-6">
-                            <label for="email" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="email" name="email">
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="grade_id" class="form-label">Grado</label>
-                            <select class="form-select" id="grade_id" name="grade_id" required>
-                                <option value="" selected disabled>Seleccionar grado...</option>
-                                {% for grade in grades %}
-                                    <option value="{{ grade.id }}">{{ grade.name }} ({{ grade.level }})</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="section_id" class="form-label">Sección</label>
-                            <select class="form-select" id="section_id" name="section_id" required disabled>
-                                <option value="" selected disabled>Seleccione un grado primero</option>
-                                {% for grade in grades %}
-                                    {% for section in grade.sections %}
-                                        <option value="{{ section.id }}" data-grade-id="{{ grade.id }}" style="display: none;">
-                                            {{ section.name }}
-                                        </option>
-                                    {% endfor %}
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="is_active" name="is_active" checked>
-                        <label class="form-check-label" for="is_active">
-                            Estudiante Activo
-                        </label>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Modal para importar estudiantes -->
-<div class="modal fade" id="importStudentsModal" tabindex="-1" aria-labelledby="importStudentsModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="importStudentsModalLabel">Importar Estudiantes</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form action="{{ url_for('admin.import_students') }}" method="POST" enctype="multipart/form-data">
-                <div class="modal-body">
-                    <div class="permanent-alert permanent-alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Importe estudiantes desde un archivo Excel. El archivo debe tener las siguientes columnas:
-                        <ul class="mb-0 mt-2">
-                            <li>Cédula (obligatorio)</li>
-                            <li>Nombre (obligatorio)</li>
-                            <li>Apellido (obligatorio)</li>
-                            <li>Fecha de Nacimiento (formato: DD/MM/AAAA)</li>
-                            <li>Género (M o F)</li>
-                            <li>Dirección</li>
-                            <li>Teléfono</li>
-                            <li>Email</li>
+                        
+                        <!-- Pestaña para boletín de calificaciones -->
+                        <ul class="nav nav-tabs mt-4" id="studentTabs{{ student.id }}" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="grades-tab{{ student.id }}" data-bs-toggle="tab" 
+                                        data-bs-target="#grades{{ student.id }}" type="button" role="tab" 
+                                        aria-controls="grades{{ student.id }}" aria-selected="true">
+                                    Boletín de Calificaciones
+                                </button>
+                            </li>
                         </ul>
+                        <div class="tab-content p-3 border border-top-0 rounded-bottom" id="studentTabsContent{{ student.id }}">
+                            <div class="tab-pane fade show active" id="grades{{ student.id }}" role="tabpanel" aria-labelledby="grades-tab{{ student.id }}">
+                                {% if student.final_grades.count() > 0 %}
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered table-sm">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Asignatura</th>
+                                                    {% for period in active_year.periods %}
+                                                        <th class="text-center">{{ period.name }}</th>
+                                                    {% endfor %}
+                                                    <th class="text-center">Definitiva</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for subject in subjects %}
+                                                    <tr>
+                                                        <td>{{ subject.name }}</td>
+                                                        {% for period in active_year.periods %}
+                                                            {% set found = false %}
+                                                            {% for grade in student.final_grades %}
+                                                                {% if grade.subject_id == subject.id and grade.period_id == period.id %}
+                                                                    <td class="text-center">
+                                                                        <span class="badge {% if grade.value >= passing_grade %}bg-success{% else %}bg-danger{% endif %}">
+                                                                            {{ grade.value }}
+                                                                        </span>
+                                                                    </td>
+                                                                    {% set found = true %}
+                                                                {% endif %}
+                                                            {% endfor %}
+                                                            {% if not found %}
+                                                                <td class="text-center">-</td>
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                        
+                                                        <!-- Calcular definitiva -->
+                                                        {% set total = 0 %}
+                                                        {% set count = 0 %}
+                                                        {% for grade in student.final_grades %}
+                                                            {% if grade.subject_id == subject.id %}
+                                                                {% set total = total + grade.value %}
+                                                                {% set count = count + 1 %}
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                        
+                                                        {% if count > 0 %}
+                                                            {% set final = total / count %}
+                                                            <td class="text-center">
+                                                                <span class="badge {% if final >= passing_grade %}bg-success{% else %}bg-danger{% endif %}">
+                                                                    {{ final|round(1) }}
+                                                                </span>
+                                                            </td>
+                                                        {% else %}
+                                                            <td class="text-center">-</td>
+                                                        {% endif %}
+                                                    </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="text-end mt-3">
+                                        <a href="{{ url_for('reports.student_report', student_id=student.id) }}" class="btn btn-sm btn-primary" target="_blank">
+                                            <i class="fas fa-file-pdf me-1"></i> Ver Boletín Completo
+                                        </a>
+                                    </div>
+                                {% else %}
+                                    <div class="permanent-alert permanent-alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        No hay calificaciones registradas para este estudiante.
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label for="section_id_import" class="form-label">Sección</label>
-                        <select class="form-select" id="section_id_import" name="section_id" required>
-                            <option value="" selected disabled>Seleccionar sección...</option>
-                            {% for grade in grades %}
-                                <optgroup label="{{ grade.name }} ({{ grade.level }})">
-                                    {% for section in grade.sections %}
-                                        <option value="{{ section.id }}">{{ grade.name }} "{{ section.name }}"</option>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para editar estudiante -->
+        <div class="modal fade" id="editStudentModal{{ student.id }}" tabindex="-1" aria-labelledby="editStudentModalLabel{{ student.id }}" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editStudentModalLabel{{ student.id }}">Editar Estudiante</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form action="{{ url_for('admin.edit_student', id=student.id) }}" method="POST">
+                            {{ form.csrf_token }}
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="first_name{{ student.id }}" class="form-label">Nombre</label>
+                                    <input type="text" class="form-control" id="first_name{{ student.id }}" name="first_name" value="{{ student.first_name }}" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="last_name{{ student.id }}" class="form-label">Apellido</label>
+                                    <input type="text" class="form-control" id="last_name{{ student.id }}" name="last_name" value="{{ student.last_name }}" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="student_id{{ student.id }}" class="form-label">Cédula</label>
+                                <input type="text" class="form-control" id="student_id{{ student.id }}" name="student_id" value="{{ student.student_id }}" required>
+                                <div class="form-text">Ingrese el número de cédula sin puntos ni guiones.</div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="birth_date{{ student.id }}" class="form-label">Fecha de Nacimiento</label>
+                                    <input type="date" class="form-control" id="birth_date{{ student.id }}" name="birth_date" value="{{ student.birth_date.strftime('%Y-%m-%d') if student.birth_date else '' }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="gender{{ student.id }}" class="form-label">Género</label>
+                                    <select class="form-select" id="gender{{ student.id }}" name="gender">
+                                        <option value="" {% if not student.gender %}selected{% endif %}>Seleccionar...</option>
+                                        <option value="M" {% if student.gender == 'M' %}selected{% endif %}>Masculino</option>
+                                        <option value="F" {% if student.gender == 'F' %}selected{% endif %}>Femenino</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="address{{ student.id }}" class="form-label">Dirección</label>
+                                <input type="text" class="form-control" id="address{{ student.id }}" name="address" value="{{ student.address or '' }}">
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="phone{{ student.id }}" class="form-label">Teléfono</label>
+                                    <input type="text" class="form-control" id="phone{{ student.id }}" name="phone" value="{{ student.phone or '' }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="email{{ student.id }}" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="email{{ student.id }}" name="email" value="{{ student.email or '' }}">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="section_id{{ student.id }}" class="form-label">Sección</label>
+                                <select class="form-select" id="section_id{{ student.id }}" name="section_id" required>
+                                    <option value="" disabled>Seleccionar sección...</option>
+                                    {% for grade in grades %}
+                                        <optgroup label="{{ grade.name }} ({{ grade.level }})">
+                                            {% for section in grade.sections %}
+                                                <option value="{{ section.id }}" {% if student.section_id == section.id %}selected{% endif %}>
+                                                    {{ grade.name }} "{{ section.name }}"
+                                                </option>
+                                            {% endfor %}
+                                        </optgroup>
                                     {% endfor %}
-                                </optgroup>
-                            {% endfor %}
-                        </select>
-                        <div class="form-text">Seleccione la sección a la que pertenecerán los estudiantes importados.</div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="file" class="form-label">Archivo Excel</label>
-                        <input type="file" class="form-control" id="file" name="file" accept=".xlsx, .xls" required>
-                    </div>
-                    
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="is_active_import" name="is_active" checked>
-                        <label class="form-check-label" for="is_active_import">
-                            Marcar estudiantes como activos
-                        </label>
-                    </div>
-                    
-                    <div class="d-grid gap-2">
-                        <a href="{{ url_for('admin.download_student_template') }}" class="btn btn-outline-primary">
-                            <i class="fas fa-download me-2"></i>Descargar Plantilla
-                        </a>
+                                </select>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="is_active{{ student.id }}" name="is_active" {% if student.is_active %}checked{% endif %}>
+                                <label class="form-check-label" for="is_active{{ student.id }}">
+                                    Estudiante Activo
+                                </label>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Importar</button>
+            </div>
+        </div>
+
+        <!-- Modal para eliminar estudiante -->
+        <div class="modal fade" id="deleteStudentModal{{ student.id }}" tabindex="-1" aria-labelledby="deleteStudentModalLabel{{ student.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteStudentModalLabel{{ student.id }}">Eliminar Estudiante</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>¿Está seguro de que desea eliminar al estudiante <strong>{{ student.first_name }} {{ student.last_name }}</strong> (Cédula: {{ student.student_id }})?</p>
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Esta acción no se puede deshacer. Se eliminarán todas las calificaciones y registros asociados a este estudiante.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <form action="{{ url_for('admin.delete_student', id=student.id) }}" method="POST">
+                            <button type="submit" class="btn btn-danger">Eliminar</button>
+                        </form>
+                    </div>
                 </div>
-            </form>
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Modal para crear nuevo estudiante -->
+        <div class="modal fade" id="newStudentModal" tabindex="-1" aria-labelledby="newStudentModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="newStudentModalLabel">Nuevo Estudiante</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form action="{{ url_for('admin.new_student') }}" method="POST">
+                            {{ form.csrf_token }}
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="first_name" class="form-label">Nombre</label>
+                                    <input type="text" class="form-control" id="first_name" name="first_name" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="last_name" class="form-label">Apellido</label>
+                                    <input type="text" class="form-control" id="last_name" name="last_name" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="student_id" class="form-label">Cédula</label>
+                                <input type="text" class="form-control" id="student_id" name="student_id" required>
+                                <div class="form-text">Ingrese el número de cédula sin puntos ni guiones.</div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="birth_date" class="form-label">Fecha de Nacimiento</label>
+                                    <input type="date" class="form-control" id="birth_date" name="birth_date">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="gender" class="form-label">Género</label>
+                                    <select class="form-select" id="gender" name="gender">
+                                        <option value="" selected>Seleccionar...</option>
+                                        <option value="M">Masculino</option>
+                                        <option value="F">Femenino</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="address" class="form-label">Dirección</label>
+                                <input type="text" class="form-control" id="address" name="address">
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="phone" class="form-label">Teléfono</label>
+                                    <input type="text" class="form-control" id="phone" name="phone">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="email" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="email" name="email">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="section_id" class="form-label">Sección</label>
+                                <select class="form-select" id="section_id" name="section_id" required>
+                                    <option value="" disabled selected>Seleccionar sección...</option>
+                                    {% for grade in grades %}
+                                        <optgroup label="{{ grade.name }} ({{ grade.level }})">
+                                            {% for section in grade.sections %}
+                                                <option value="{{ section.id }}">
+                                                    {{ grade.name }} "{{ section.name }}"
+                                                </option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="is_active" name="is_active" checked>
+                                <label class="form-check-label" for="is_active">
+                                    Estudiante Activo
+                                </label>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-primary">Guardar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para importar estudiantes -->
+        <div class="modal fade" id="importStudentsModal" tabindex="-1" aria-labelledby="importStudentsModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="importStudentsModalLabel">Importar Estudiantes</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form action="{{ url_for('admin.import_students') }}" method="POST" enctype="multipart/form-data">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Seleccione un archivo Excel (.xlsx) con los datos de los estudiantes a importar.
+                                <hr>
+                                <p class="mb-0">El archivo debe contener las siguientes columnas:</p>
+                                <ul class="mb-0">
+                                    <li>Cédula (obligatorio)</li>
+                                    <li>Nombre (obligatorio)</li>
+                                    <li>Apellido (obligatorio)</li>
+                                    <li>Fecha de Nacimiento (opcional, formato: DD/MM/AAAA)</li>
+                                    <li>Género (opcional, valores: M o F)</li>
+                                    <li>Dirección (opcional)</li>
+                                    <li>Teléfono (opcional)</li>
+                                    <li>Email (opcional)</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="section_id_import" class="form-label">Sección</label>
+                                <select class="form-select" id="section_id_import" name="section_id" required>
+                                    <option value="" disabled selected>Seleccionar sección...</option>
+                                    {% for grade in grades %}
+                                        <optgroup label="{{ grade.name }} ({{ grade.level }})">
+                                            {% for section in grade.sections %}
+                                                <option value="{{ section.id }}">
+                                                    {{ grade.name }} "{{ section.name }}"
+                                                </option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="file" class="form-label">Archivo Excel</label>
+                                <input type="file" class="form-control" id="file" name="file" accept=".xlsx" required>
+                            </div>
+                            
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-primary">Importar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
