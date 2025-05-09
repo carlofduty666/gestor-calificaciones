@@ -1,0 +1,447 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Asignaturas{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-4 align-items-center">
+            <div class="col-sm-6">
+                <h1 class="m-0 text-gradient">
+                    <i class="fas fa-book-open me-2"></i>Gestión de Asignaturas
+                </h1>
+            </div>
+            <div class="col-sm-6">
+                <div class="float-sm-end">
+                    <button type="button" class="btn btn-primary btn-dashboard" data-bs-toggle="modal" data-bs-target="#newSubjectModal">
+                        <i class="fas fa-plus-circle me-2"></i>Nueva Asignatura
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="content">
+    <div class="container-fluid">
+        <!-- Mensaje informativo -->
+        <div class="permanent-alert permanent-alert-info mb-4">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Información:</strong> En esta sección puede gestionar las asignaturas que se imparten en la institución.
+            Las asignaturas pueden ser asignadas a profesores y grados específicos.
+        </div>
+
+        <!-- Filtros -->
+        <div class="card dashboard-card mb-4">
+            <div class="card-body">
+                <h5 class="card-title mb-3">
+                    <i class="fas fa-filter me-2"></i>Filtros
+                </h5>
+                <form method="GET" action="{{ url_for('admin.subjects') }}" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="search" class="form-label">Buscar</label>
+                        <input type="text" class="form-control" id="search" name="search" placeholder="Nombre o código" value="{{ request.args.get('search', '') }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="grade_id" class="form-label">Grado</label>
+                        <select name="grade_id" id="grade_id" class="form-select">
+                            <option value="">Todos los grados</option>
+                            {% for grade in grades %}
+                                <option value="{{ grade.id }}" {% if request.args.get('grade_id')|int == grade.id %}selected{% endif %}>
+                                    {{ grade.name }} ({{ grade.level }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <div class="d-grid gap-2 d-md-flex w-100 justify-content-md-end">
+                            <a href="{{ url_for('admin.subjects') }}" class="btn btn-outline-secondary me-md-2">
+                                <i class="fas fa-undo me-1"></i>Limpiar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tabla de asignaturas -->
+        <div class="card dashboard-card">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Lista de Asignaturas</h5>
+                <span class="badge bg-primary">{{ subjects|length }} asignaturas</span>
+            </div>
+            <div class="card-body">
+                {% if subjects|length > 0 %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Nombre</th>
+                                    <th>Grados Asignados</th>
+                                    <th>Profesores</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for subject in subjects %}
+                                    <tr class="animate-fade-in delay-{{ loop.index }}">
+                                        <td>
+                                            <span class="badge bg-info text-dark">{{ subject.code }}</span>
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold">{{ subject.name }}</div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                {% for grade in subject.grades %}
+                                                    <span class="badge bg-secondary">{{ grade.name }} ({{ grade.level }})</span>
+                                                {% else %}
+                                                    <span class="text-muted">Sin grados asignados</span>
+                                                {% endfor %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% set teacher_count = subject.teacher_assignments.count() %}
+                                            {% if teacher_count > 0 %}
+                                                <span class="badge bg-success">{{ teacher_count }} profesor(es)</span>
+                                            {% else %}
+                                                <span class="badge bg-warning text-dark">Sin profesores</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" class="btn btn-sm btn-outline-info view-subject-btn" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#viewSubjectModal{{ subject.id }}" 
+                                                        title="Ver Detalles">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-primary edit-subject-btn" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#editSubjectModal{{ subject.id }}" 
+                                                        title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#deleteSubjectModal{{ subject.id }}" 
+                                                        title="Eliminar">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="permanent-alert permanent-alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No hay asignaturas registradas con los filtros seleccionados.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Paginación -->
+        {% if pagination and pagination.pages > 1 %}
+        <nav aria-label="Navegación de páginas" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if pagination.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('admin.subjects', page=pagination.prev_num, **request.args) }}" aria-label="Anterior">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="Anterior">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for page in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                    {% if page %}
+                        {% if page == pagination.page %}
+                        <li class="page-item active">
+                            <a class="page-link" href="#">{{ page }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.subjects', page=page, **request.args) }}">{{ page }}</a>
+                        </li>
+                        {% endif %}
+                    {% else %}
+                        <li class="page-item disabled">
+                            <a class="page-link" href="#">...</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if pagination.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('admin.subjects', page=pagination.next_num, **request.args) }}" aria-label="Siguiente">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="Siguiente">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+        <!-- Modales para cada asignatura -->
+        {% for subject in subjects %}
+        <!-- Modal para ver detalles de la asignatura -->
+        <div class="modal fade" id="viewSubjectModal{{ subject.id }}" tabindex="-1" aria-labelledby="viewSubjectModalLabel{{ subject.id }}" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="viewSubjectModalLabel{{ subject.id }}">
+                            Detalles de la Asignatura
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-4 text-center mb-4">
+                                <div class="avatar-circle-large mx-auto mb-3 bg-primary text-white">
+                                    {{ subject.name[0] }}
+                                </div>
+                                <h4>{{ subject.name }}</h4>
+                                <p class="text-muted">Código: {{ subject.code }}</p>
+                            </div>
+                            <div class="col-md-8">
+                                <div class="row">
+                                    <div class="col-12">
+                                        <h5 class="mb-3">Grados Asignados</h5>
+                                        <div class="d-flex flex-wrap gap-2 mb-4">
+                                            {% for grade in subject.grades %}
+                                                <span class="badge bg-secondary p-2">{{ grade.name }} ({{ grade.level }})</span>
+                                            {% else %}
+                                                <span class="text-muted">Sin grados asignados</span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <h5 class="mb-3">Profesores Asignados</h5>
+                                        {% if subject.teacher_assignments.count() > 0 %}
+                                            <table class="table table-bordered">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Profesor</th>
+                                                        <th>Sección</th>
+                                                        <th>Año Académico</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for assignment in subject.teacher_assignments %}
+                                                        <tr>
+                                                            <td>{{ assignment.teacher.user.last_name }}, {{ assignment.teacher.user.first_name }}</td>
+                                                            <td>{{ assignment.section.grade.name }} "{{ assignment.section.name }}"</td>
+                                                            <td>{{ assignment.academic_year.name }}</td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        {% else %}
+                                            <p class="text-muted">No hay profesores asignados a esta asignatura.</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editSubjectModal{{ subject.id }}" data-bs-dismiss="modal">
+                            <i class="fas fa-edit me-1"></i>Editar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para editar asignatura -->
+        <div class="modal fade" id="editSubjectModal{{ subject.id }}" tabindex="-1" aria-labelledby="editSubjectModalLabel{{ subject.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editSubjectModalLabel{{ subject.id }}">Editar Asignatura</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form action="{{ url_for('admin.edit_subject', id=subject.id) }}" method="POST">
+                            <div class="mb-3">
+                                <label for="name{{ subject.id }}" class="form-label">Nombre</label>
+                                <input type="text" class="form-control" id="name{{ subject.id }}" name="name" value="{{ subject.name }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="code{{ subject.id }}" class="form-label">Código</label>
+                                <input type="text" class="form-control" id="code{{ subject.id }}" name="code" value="{{ subject.code }}" required>
+                                <div class="form-text">Código único para identificar la asignatura.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="grades{{ subject.id }}" class="form-label">Grados</label>
+                                <select class="form-select" id="grades{{ subject.id }}" name="grades" multiple required>
+                                    {% for grade in grades %}
+                                        <option value="{{ grade.id }}" {% if grade in subject.grades %}selected{% endif %}>
+                                            {{ grade.name }} ({{ grade.level }})
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">Mantenga presionada la tecla Ctrl para seleccionar múltiples grados.</div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para eliminar asignatura -->
+        <div class="modal fade" id="deleteSubjectModal{{ subject.id }}" tabindex="-1" aria-labelledby="deleteSubjectModalLabel{{ subject.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteSubjectModalLabel{{ subject.id }}">Eliminar Asignatura</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>¿Está seguro de que desea eliminar la asignatura <strong>{{ subject.name }}</strong> (Código: {{ subject.code }})?</p>
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Esta acción no se puede deshacer. Se eliminarán todas las asignaciones y calificaciones asociadas a esta asignatura.
+                        </div>
+                        
+                        {% if subject.teacher_assignments.count() > 0 %}
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle me-2"></i>
+                                Esta asignatura tiene {{ subject.teacher_assignments.count() }} asignaciones de profesores. Eliminarla afectará estas asignaciones.
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <form action="{{ url_for('admin.delete_subject', id=subject.id) }}" method="POST">
+                            <button type="submit" class="btn btn-danger">Eliminar</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Modal para crear nueva asignatura -->
+        <div class="modal fade" id="newSubjectModal" tabindex="-1" aria-labelledby="newSubjectModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="newSubjectModalLabel">Nueva Asignatura</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form action="{{ url_for('admin.new_subject') }}" method="POST">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Nombre</label>
+                                <input type="text" class="form-control" id="name" name="name" placeholder="Ej: Matemáticas, Ciencias, etc." required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="code" class="form-label">Código</label>
+                                <input type="text" class="form-control" id="code" name="code" placeholder="Ej: MAT101, CS202, etc." required>
+                                <div class="form-text">Código único para identificar la asignatura.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="grades" class="form-label">Grados</label>
+                                <select class="form-select" id="grades" name="grades" multiple required>
+                                    {% for grade in grades %}
+                                        <option value="{{ grade.id }}">
+                                            {{ grade.name }} ({{ grade.level }})
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">Mantenga presionada la tecla Ctrl para seleccionar múltiples grados.</div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-primary">Guardar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .avatar-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+    }
+    
+    .avatar-circle-large {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 2.5rem;
+    }
+    
+    /* Estilos para el select múltiple */
+    select[multiple] {
+        height: 150px;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    $(document).ready(function() {
+        // Inicializar select2 para mejorar la selección múltiple
+        if ($.fn.select2) {
+            $('.form-select[multiple]').select2({
+                placeholder: 'Seleccione los grados',
+                allowClear: true,
+                width: '100%'
+            });
+        }
+        
+        // Filtro de búsqueda
+        $('#search').on('keyup', function() {
+            const value = $(this).val().toLowerCase();
+            $('tbody tr').filter(function() {
+                $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1);
+            });
+        });
+    });
+</script>
+{% endblock %}

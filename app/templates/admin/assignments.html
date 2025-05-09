@@ -13,11 +13,9 @@
             </div>
             <div class="col-sm-6">
                 <div class="float-sm-end">
-                    <!-- Quitamos el botón de nueva asignación ya que los profesores lo harán -->
-                    <span class="badge bg-info text-white p-2">
-                        <i class="fas fa-info-circle me-1"></i>
-                        Las asignaciones son gestionadas por los profesores
-                    </span>
+                    <button type="button" class="btn btn-primary btn-dashboard" data-bs-toggle="modal" data-bs-target="#newAssignmentModal">
+                        <i class="fas fa-plus-circle me-2"></i>Nueva Asignación
+                    </button>
                 </div>
             </div>
         </div>
@@ -89,15 +87,19 @@
             </div>
         </div>
 
-        <!-- Mensaje informativo permanente -->
+        <!-- Mensaje informativo -->
         <div class="permanent-alert permanent-alert-info mb-4">
             <i class="fas fa-info-circle me-2"></i>
-            <strong>Información:</strong> En esta sección puede visualizar las asignaciones de profesores a asignaturas y secciones. 
-            Las asignaciones son creadas por los profesores desde su panel de control.
+            <strong>Información:</strong> En esta sección puede gestionar las asignaciones de profesores a asignaturas y secciones.
+            Las asignaciones determinan qué profesor imparte qué asignatura en qué sección durante el año académico actual.
         </div>
 
         <!-- Tabla de asignaciones -->
         <div class="card dashboard-card">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Asignaciones Actuales</h5>
+                <span class="badge bg-primary">{{ assignments|length }} asignaciones</span>
+            </div>
             <div class="card-body">
                 {% if assignments %}
                 <div class="table-responsive">
@@ -109,6 +111,7 @@
                                 <th>Sección</th>
                                 <th>Año Académico</th>
                                 <th>Estado</th>
+                                <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -142,6 +145,22 @@
                                     {% else %}
                                     <span class="badge bg-secondary">Inactivo</span>
                                     {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#editAssignmentModal{{ assignment.id }}" 
+                                                title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#deleteAssignmentModal{{ assignment.id }}" 
+                                                title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -205,12 +224,179 @@
                 {% else %}
                 <div class="permanent-alert permanent-alert-info">
                     <i class="fas fa-info-circle me-2"></i>
-                    No hay asignaciones registradas con los filtros seleccionados. 
-
+                    No hay asignaciones registradas con los filtros seleccionados.
+                    <button type="button" class="btn btn-sm btn-primary ms-3" data-bs-toggle="modal" data-bs-target="#newAssignmentModal">
+                        <i class="fas fa-plus-circle me-1"></i>Crear nueva asignación
+                    </button>
                 </div>
                 {% endif %}
             </div>
         </div>
+
+        <!-- Modal para crear nueva asignación -->
+        <div class="modal fade" id="newAssignmentModal" tabindex="-1" aria-labelledby="newAssignmentModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="newAssignmentModalLabel">Nueva Asignación</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form action="{{ url_for('admin.new_assignment') }}" method="POST">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="teacher_id" class="form-label">Profesor</label>
+                                <select class="form-select" id="teacher_id" name="teacher_id" required>
+                                    <option value="" selected disabled>Seleccione un profesor</option>
+                                    {% for teacher in teachers %}
+                                        <option value="{{ teacher.id }}">
+                                            {{ teacher.user.last_name }}, {{ teacher.user.first_name }}
+                                            {% if teacher.specialization %}({{ teacher.specialization }}){% endif %}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="subject_id" class="form-label">Asignatura</label>
+                                <select class="form-select" id="subject_id" name="subject_id" required>
+                                    <option value="" selected disabled>Seleccione una asignatura</option>
+                                    {% for subject in subjects %}
+                                        <option value="{{ subject.id }}">
+                                            {{ subject.name }} ({{ subject.code }})
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="section_id" class="form-label">Sección</label>
+                                <select class="form-select" id="section_id" name="section_id" required>
+                                    <option value="" selected disabled>Seleccione una sección</option>
+                                    {% for grade in grades %}
+                                        <optgroup label="{{ grade.name }} ({{ grade.level }})">
+                                            {% for section in grade.sections %}
+                                                <option value="{{ section.id }}">
+                                                    {{ grade.name }} "{{ section.name }}"
+                                                </option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="academic_year_id" class="form-label">Año Académico</label>
+                                <select class="form-select" id="academic_year_id" name="academic_year_id" required>
+                                    {% for year in academic_years %}
+                                        <option value="{{ year.id }}" {% if year.is_active %}selected{% endif %}>
+                                            {{ year.name }} {% if year.is_active %}(Activo){% endif %}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Guardar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modales para editar y eliminar asignaciones -->
+        {% for assignment in assignments %}
+        <!-- Modal para editar asignación -->
+        <div class="modal fade" id="editAssignmentModal{{ assignment.id }}" tabindex="-1" aria-labelledby="editAssignmentModalLabel{{ assignment.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editAssignmentModalLabel{{ assignment.id }}">Editar Asignación</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form action="{{ url_for('admin.edit_assignment', id=assignment.id) }}" method="POST">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="teacher_id{{ assignment.id }}" class="form-label">Profesor</label>
+                                <select class="form-select" id="teacher_id{{ assignment.id }}" name="teacher_id" required>
+                                    {% for teacher in teachers %}
+                                        <option value="{{ teacher.id }}" {% if teacher.id == assignment.teacher_id %}selected{% endif %}>
+                                            {{ teacher.user.last_name }}, {{ teacher.user.first_name }}
+                                            {% if teacher.specialization %}({{ teacher.specialization }}){% endif %}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="subject_id{{ assignment.id }}" class="form-label">Asignatura</label>
+                                <select class="form-select" id="subject_id{{ assignment.id }}" name="subject_id" required>
+                                    {% for subject in subjects %}
+                                        <option value="{{ subject.id }}" {% if subject.id == assignment.subject_id %}selected{% endif %}>
+                                            {{ subject.name }} ({{ subject.code }})
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="section_id{{ assignment.id }}" class="form-label">Sección</label>
+                                <select class="form-select" id="section_id{{ assignment.id }}" name="section_id" required>
+                                    {% for grade in grades %}
+                                        <optgroup label="{{ grade.name }} ({{ grade.level }})">
+                                            {% for section in grade.sections %}
+                                                <option value="{{ section.id }}" {% if section.id == assignment.section_id %}selected{% endif %}>
+                                                    {{ grade.name }} "{{ section.name }}"
+                                                </option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Año Académico</label>
+                                <input type="text" class="form-control" value="{{ assignment.academic_year.name }}" readonly>
+                                <input type="hidden" name="academic_year_id" value="{{ assignment.academic_year_id }}">
+                                <div class="form-text">El año académico no se puede cambiar una vez creada la asignación.</div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para eliminar asignación -->
+        <div class="modal fade" id="deleteAssignmentModal{{ assignment.id }}" tabindex="-1" aria-labelledby="deleteAssignmentModalLabel{{ assignment.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteAssignmentModalLabel{{ assignment.id }}">Eliminar Asignación</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>¿Está seguro de que desea eliminar la siguiente asignación?</p>
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <p><strong>Profesor:</strong> {{ assignment.teacher.user.first_name }} {{ assignment.teacher.user.last_name }}</p>
+                                <p><strong>Asignatura:</strong> {{ assignment.subject.name }} ({{ assignment.subject.code }})</p>
+                                <p><strong>Sección:</strong> {{ assignment.section.grade.name }} "{{ assignment.section.name }}"</p>
+                                <p><strong>Año Académico:</strong> {{ assignment.academic_year.name }}</p>
+                            </div>
+                        </div>
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Esta acción no se puede deshacer. Si hay calificaciones asociadas a esta asignación, no se podrá eliminar.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <form action="{{ url_for('admin.delete_assignment', id=assignment.id) }}" method="POST">
+                            <button type="submit" class="btn btn-danger">Eliminar</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
     </div>
 </div>
 {% endblock %}
@@ -218,18 +404,29 @@
 {% block scripts %}
 {{ super() }}
 <script>
-    // Activar tooltips
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
-    });
-    
-    // Enviar formulario al cambiar filtros
-    document.querySelectorAll('#academic_year, #teacher, #subject, #section').forEach(function(select) {
-        select.addEventListener('change', function() {
-            this.form.submit();
+    $(document).ready(function() {
+        // Inicializar select2 para mejorar la selección
+        if ($.fn.select2) {
+            $('.form-select').select2({
+                width: '100%',
+                placeholder: 'Seleccione una opción'
+            });
+        }
+
+        // Filtrado dinámico de secciones según el grado seleccionado
+        $('#grade_filter').change(function() {
+            const gradeId = $(this).val();
+            if (gradeId) {
+                $('#section_filter option').hide();
+                $('#section_filter option[data-grade="' + gradeId + '"]').show();
+                $('#section_filter').val('');
+            } else {
+                $('#section_filter option').show();
+            }
+            if ($.fn.select2) {
+                $('#section_filter').trigger('change.select2');
+            }
         });
     });
 </script>
 {% endblock %}
-

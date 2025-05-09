@@ -1,0 +1,807 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Usuarios{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-4 align-items-center">
+            <div class="col-sm-6">
+                <h1 class="m-0 text-gradient">
+                    <i class="fas fa-users me-2"></i>Gestión de Usuarios
+                </h1>
+            </div>
+            <div class="col-sm-6">
+                <div class="float-sm-end">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-primary btn-dashboard" data-bs-toggle="modal" data-bs-target="#newUserModal">
+                            <i class="fas fa-user-plus me-2"></i>Nuevo Usuario
+                        </button>
+                        <button type="button" class="btn btn-success btn-dashboard" data-bs-toggle="modal" data-bs-target="#preRegisterTeacherModal">
+                            <i class="fas fa-chalkboard-teacher me-2"></i>Pre-Registrar Profesor
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="content">
+    <div class="container-fluid">
+        <!-- Filtros -->
+        <div class="card dashboard-card mb-4">
+            <div class="card-body">
+                <h5 class="card-title mb-3">
+                    <i class="fas fa-filter me-2"></i>Filtros de Visualización
+                </h5>
+                <form method="GET" action="{{ url_for('admin.users') }}" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="role" class="form-label">Rol</label>
+                        <select name="role" id="role" class="form-select">
+                            <option value="">Todos</option>
+                            <option value="admin" {% if request.args.get('role') == 'admin' %}selected{% endif %}>Administradores</option>
+                            <option value="teacher" {% if request.args.get('role') == 'teacher' %}selected{% endif %}>Profesores</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="status" class="form-label">Estado</label>
+                        <select name="status" id="status" class="form-select">
+                            <option value="">Todos</option>
+                            <option value="active" {% if request.args.get('status') == 'active' %}selected{% endif %}>Activos</option>
+                            <option value="inactive" {% if request.args.get('status') == 'inactive' %}selected{% endif %}>Inactivos</option>
+                            <option value="registered" {% if request.args.get('status') == 'registered' %}selected{% endif %}>Registrados</option>
+                            <option value="unregistered" {% if request.args.get('status') == 'unregistered' %}selected{% endif %}>No Registrados</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="search" class="form-label">Buscar</label>
+                        <input type="text" class="form-control" id="search" name="search" placeholder="Nombre, apellido, email o cédula" value="{{ request.args.get('search', '') }}">
+                    </div>
+                    <div class="col-12 text-end">
+                        <a href="{{ url_for('admin.users') }}" class="btn btn-outline-secondary me-2">
+                            <i class="fas fa-undo me-1"></i>Limpiar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search me-1"></i>Filtrar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Mensaje informativo -->
+        <div class="permanent-alert permanent-alert-info mb-4">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Información:</strong> En esta sección puede gestionar los usuarios del sistema, incluyendo administradores y profesores.
+            Los profesores pueden ser pre-registrados para que completen su registro posteriormente.
+        </div>
+
+        <!-- Pestañas para diferentes tipos de usuarios -->
+        <ul class="nav nav-tabs mb-4" id="userTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="all-users-tab" data-bs-toggle="tab" data-bs-target="#all-users" type="button" role="tab" aria-controls="all-users" aria-selected="true">
+                    <i class="fas fa-users me-2"></i>Todos los Usuarios
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="admins-tab" data-bs-toggle="tab" data-bs-target="#admins" type="button" role="tab" aria-controls="admins" aria-selected="false">
+                    <i class="fas fa-user-shield me-2"></i>Administradores
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="teachers-tab" data-bs-toggle="tab" data-bs-target="#teachers" type="button" role="tab" aria-controls="teachers" aria-selected="false">
+                    <i class="fas fa-chalkboard-teacher me-2"></i>Profesores
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="unregistered-tab" data-bs-toggle="tab" data-bs-target="#unregistered" type="button" role="tab" aria-controls="unregistered" aria-selected="false">
+                    <i class="fas fa-user-clock me-2"></i>Pendientes de Registro
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="userTabsContent">
+            <!-- Pestaña de todos los usuarios -->
+            <div class="tab-pane fade show active" id="all-users" role="tabpanel" aria-labelledby="all-users-tab">
+                <div class="card dashboard-card">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Todos los Usuarios</h5>
+                        <span class="badge bg-primary">{{ users|length }} usuarios</span>
+                    </div>
+                    <div class="card-body">
+                        {% if users %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Usuario</th>
+                                        <th>Nombre</th>
+                                        <th>Email</th>
+                                        <th>Rol</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user in users %}
+                                    <tr class="animate-fade-in delay-{{ loop.index }}">
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="user-avatar me-2">
+                                                    {{ user.first_name[0] }}{{ user.last_name[0] }}
+                                                </div>
+                                                <div>
+                                                    <div class="fw-semibold">{{ user.username or 'Sin usuario' }}</div>
+                                                    <small class="text-muted">{{ user.identification_number or 'Sin cédula' }}</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ user.first_name }} {{ user.last_name }}</td>
+                                        <td>{{ user.email }}</td>
+                                        <td>
+                                            {% if user.role == 'admin' %}
+                                                <span class="badge bg-danger">Administrador</span>
+                                            {% elif user.role == 'teacher' %}
+                                                <span class="badge bg-success">Profesor</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ user.role }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if user.is_active %}
+                                                <span class="badge bg-success">Activo</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Inactivo</span>
+                                            {% endif %}
+                                            
+                                            {% if user.is_registered %}
+                                                <span class="badge bg-info text-dark">Registrado</span>
+                                            {% else %}
+                                                <span class="badge bg-warning text-dark">No Registrado</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#editUserModal{{ user.id }}" 
+                                                        title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#deleteUserModal{{ user.id }}" 
+                                                        title="Eliminar">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginación -->
+                        {% if pagination and pagination.pages > 1 %}
+                        <nav aria-label="Navegación de páginas" class="mt-4">
+                            <ul class="pagination justify-content-center">
+                                {% if pagination.has_prev %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin.users', page=pagination.prev_num, **request.args) }}" aria-label="Anterior">
+                                        <span aria-hidden="true">&laquo;</span>
+                                    </a>
+                                </li>
+                                {% else %}
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#" aria-label="Anterior">
+                                        <span aria-hidden="true">&laquo;</span>
+                                    </a>
+                                </li>
+                                {% endif %}
+                                
+                                {% for page in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                                    {% if page %}
+                                        {% if page == pagination.page %}
+                                        <li class="page-item active">
+                                            <a class="page-link" href="#">{{ page }}</a>
+                                        </li>
+                                        {% else %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="{{ url_for('admin.users', page=page, **request.args) }}">{{ page }}</a>
+                                        </li>
+                                        {% endif %}
+                                    {% else %}
+                                        <li class="page-item disabled">
+                                            <a class="page-link" href="#">...</a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if pagination.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin.users', page=pagination.next_num, **request.args) }}" aria-label="Siguiente">
+                                        <span aria-hidden="true">&raquo;</span>
+                                    </a>
+                                </li>
+                                {% else %}
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#" aria-label="Siguiente">
+                                        <span aria-hidden="true">&raquo;</span>
+                                    </a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                        
+                        {% else %}
+                        <div class="permanent-alert permanent-alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            No hay usuarios registrados con los filtros seleccionados.
+                            <button type="button" class="btn btn-sm btn-primary ms-3" data-bs-toggle="modal" data-bs-target="#newUserModal">
+                                <i class="fas fa-user-plus me-1"></i>Crear nuevo usuario
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pestaña de administradores -->
+            <div class="tab-pane fade" id="admins" role="tabpanel" aria-labelledby="admins-tab">
+                <div class="card dashboard-card">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Administradores</h5>
+                        <span class="badge bg-primary">{{ users|selectattr('role', 'equalto', 'admin')|list|length }} administradores</span>
+                    </div>
+                    <div class="card-body">
+                        {% set admin_users = users|selectattr('role', 'equalto', 'admin')|list %}
+                        {% if admin_users %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Usuario</th>
+                                        <th>Nombre</th>
+                                        <th>Email</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user in admin_users %}
+                                    <tr class="animate-fade-in delay-{{ loop.index }}">
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="user-avatar me-2 bg-danger text-white">
+                                                    {{ user.first_name[0] }}{{ user.last_name[0] }}
+                                                </div>
+                                                <div>
+                                                    <div class="fw-semibold">{{ user.username or 'Sin usuario' }}</div>
+                                                    <small class="text-muted">{{ user.identification_number or 'Sin cédula' }}</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ user.first_name }} {{ user.last_name }}</td>
+                                        <td>{{ user.email }}</td>
+                                        <td>
+                                            {% if user.is_active %}
+                                                <span class="badge bg-success">Activo</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Inactivo</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#editUserModal{{ user.id }}" 
+                                                        title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#deleteUserModal{{ user.id }}" 
+                                                        title="Eliminar"
+                                                        {% if users|selectattr('role', 'equalto', 'admin')|list|length <= 1 %}disabled{% endif %}>
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="permanent-alert permanent-alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            No hay administradores registrados.
+                            <button type="button" class="btn btn-sm btn-primary ms-3" data-bs-toggle="modal" data-bs-target="#newUserModal">
+                                <i class="fas fa-user-plus me-1"></i>Crear administrador
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pestaña de profesores -->
+            <div class="tab-pane fade" id="teachers" role="tabpanel" aria-labelledby="teachers-tab">
+                <div class="card dashboard-card">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Profesores</h5>
+                        <span class="badge bg-primary">{{ users|selectattr('role', 'equalto', 'teacher')|list|length }} profesores</span>
+                    </div>
+                    <div class="card-body">
+                        {% set teacher_users = users|selectattr('role', 'equalto', 'teacher')|list %}
+                        {% if teacher_users %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Usuario</th>
+                                        <th>Nombre</th>
+                                        <th>Email</th>
+                                        <th>Especialización</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user in teacher_users %}
+                                    <tr class="animate-fade-in delay-{{ loop.index }}">
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="user-avatar me-2 bg-success text-white">
+                                                    {{ user.first_name[0] }}{{ user.last_name[0] }}
+                                                </div>
+                                                <div>
+                                                    <div class="fw-semibold">{{ user.username or 'Sin usuario' }}</div>
+                                                    <small class="text-muted">{{ user.identification_number or 'Sin cédula' }}</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ user.first_name }} {{ user.last_name }}</td>
+                                        <td>{{ user.email }}</td>
+                                        <td>{{ user.teacher_profile.specialization or 'Sin especialización' }}</td>
+                                        <td>
+                                            {% if user.is_active %}
+                                                <span class="badge bg-success">Activo</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Inactivo</span>
+                                            {% endif %}
+                                            
+                                            {% if user.is_registered %}
+                                                <span class="badge bg-info text-dark">Registrado</span>
+                                            {% else %}
+                                                <span class="badge bg-warning text-dark">No Registrado</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#editUserModal{{ user.id }}" 
+                                                        title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#deleteUserModal{{ user.id }}" 
+                                                        title="Eliminar">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="permanent-alert permanent-alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            No hay profesores registrados.
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-primary me-2" data-bs-toggle="modal" data-bs-target="#newUserModal">
+                                    <i class="fas fa-user-plus me-1"></i>Crear profesor
+                                </button>
+                                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#preRegisterTeacherModal">
+                                    <i class="fas fa-chalkboard-teacher me-1"></i>Pre-Registrar profesor
+                                </button>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pestaña de usuarios no registrados -->
+            <div class="tab-pane fade" id="unregistered" role="tabpanel" aria-labelledby="unregistered-tab">
+                <div class="card dashboard-card">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Usuarios Pendientes de Registro</h5>
+                        <span class="badge bg-primary">{{ users|rejectattr('is_registered')|list|length }} pendientes</span>
+                    </div>
+                    <div class="card-body">
+                        {% set unregistered_users = users|rejectattr('is_registered')|list %}
+                        {% if unregistered_users %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Cédula</th>
+                                        <th>Nombre</th>
+                                        <th>Email</th>
+                                        <th>Rol</th>
+                                        <th>Fecha de Creación</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user in unregistered_users %}
+                                    <tr class="animate-fade-in delay-{{ loop.index }}">
+                                        <td>{{ user.identification_number }}</td>
+                                        <td>{{ user.first_name }} {{ user.last_name }}</td>
+                                        <td>{{ user.email }}</td>
+                                        <td>
+                                            {% if user.role == 'admin' %}
+                                                <span class="badge bg-danger">Administrador</span>
+                                            {% elif user.role == 'teacher' %}
+                                                <span class="badge bg-success">Profesor</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ user.role }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ user.created_at.strftime('%d/%m/%Y') }}</td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#editUserModal{{ user.id }}" 
+                                                        title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#deleteUserModal{{ user.id }}" 
+                                                        title="Eliminar">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-success" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#resendInvitationModal{{ user.id }}" 
+                                                        title="Reenviar invitación">
+                                                    <i class="fas fa-envelope"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="permanent-alert permanent-alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            No hay usuarios pendientes de registro.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para crear nuevo usuario -->
+        <div class="modal fade" id="newUserModal" tabindex="-1" aria-labelledby="newUserModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="newUserModalLabel">Nuevo Usuario</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form action="{{ url_for('admin.new_user') }}" method="POST">
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="username" class="form-label">Nombre de Usuario</label>
+                                    <input type="text" class="form-control" id="username" name="username" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="email" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="email" name="email" required>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="first_name" class="form-label">Nombre</label>
+                                    <input type="text" class="form-control" id="first_name" name="first_name" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="last_name" class="form-label">Apellido</label>
+                                    <input type="text" class="form-control" id="last_name" name="last_name" required>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="role" class="form-label">Rol</label>
+                                    <select class="form-select" id="role" name="role" required>
+                                        <option value="admin">Administrador</option>
+                                        <option value="teacher">Profesor</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3 teacher-field" style="display: none;">
+                                    <label for="specialization" class="form-label">Especialización</label>
+                                    <input type="text" class="form-control" id="specialization" name="specialization">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="password" class="form-label">Contraseña</label>
+                                    <input type="password" class="form-control" id="password" name="password" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="password2" class="form-label">Confirmar Contraseña</label>
+                                    <input type="password" class="form-control" id="password2" name="password2" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Guardar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para pre-registrar profesor -->
+        <div class="modal fade" id="preRegisterTeacherModal" tabindex="-1" aria-labelledby="preRegisterTeacherModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="preRegisterTeacherModalLabel">Pre-Registrar Profesor</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form action="{{ url_for('admin.pre_register_teacher') }}" method="POST">
+                        <div class="modal-body">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                El pre-registro permite crear un usuario para un profesor sin contraseña. El profesor podrá completar su registro posteriormente usando su número de cédula.
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="identification_number" class="form-label">Número de Cédula</label>
+                                    <input type="text" class="form-control" id="identification_number" name="identification_number" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="email" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="email" name="email" required>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="first_name" class="form-label">Nombre</label>
+                                    <input type="text" class="form-control" id="first_name" name="first_name" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="last_name" class="form-label">Apellido</label>
+                                    <input type="text" class="form-control" id="last_name" name="last_name" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="specialization" class="form-label">Especialización</label>
+                                <input type="text" class="form-control" id="specialization" name="specialization">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Pre-Registrar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modales para editar y eliminar usuarios -->
+        {% for user in users %}
+        <!-- Modal para editar usuario -->
+        <div class="modal fade" id="editUserModal{{ user.id }}" tabindex="-1" aria-labelledby="editUserModalLabel{{ user.id }}" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editUserModalLabel{{ user.id }}">Editar Usuario</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form action="{{ url_for('admin.edit_user', id=user.id) }}" method="POST">
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="username{{ user.id }}" class="form-label">Nombre de Usuario</label>
+                                    <input type="text" class="form-control" id="username{{ user.id }}" name="username" value="{{ user.username }}" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="email{{ user.id }}" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="email{{ user.id }}" name="email" value="{{ user.email }}" required>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="first_name{{ user.id }}" class="form-label">Nombre</label>
+                                    <input type="text" class="form-control" id="first_name{{ user.id }}" name="first_name" value="{{ user.first_name }}" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="last_name{{ user.id }}" class="form-label">Apellido</label>
+                                    <input type="text" class="form-control" id="last_name{{ user.id }}" name="last_name" value="{{ user.last_name }}" required>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="role{{ user.id }}" class="form-label">Rol</label>
+                                    <select class="form-select" id="role{{ user.id }}" name="role" required
+                                            {% if user.is_admin() and users|selectattr('role', 'equalto', 'admin')|list|length <= 1 %}disabled{% endif %}>
+                                        <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Administrador</option>
+                                        <option value="teacher" {% if user.role == 'teacher' %}selected{% endif %}>Profesor</option>
+                                    </select>
+                                    {% if user.is_admin() and users|selectattr('role', 'equalto', 'admin')|list|length <= 1 %}
+                                    <div class="form-text text-warning">No se puede cambiar el rol del único administrador.</div>
+                                    <input type="hidden" name="role" value="admin">
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6 mb-3 teacher-field" {% if user.role != 'teacher' %}style="display: none;"{% endif %}>
+                                    <label for="specialization{{ user.id }}" class="form-label">Especialización</label>
+                                    <input type="text" class="form-control" id="specialization{{ user.id }}" name="specialization" 
+                                           value="{{ user.teacher_profile.specialization if user.teacher_profile else '' }}">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="password{{ user.id }}" class="form-label">Nueva Contraseña</label>
+                                    <input type="password" class="form-control" id="password{{ user.id }}" name="password">
+                                    <div class="form-text">Dejar en blanco para mantener la contraseña actual.</div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="password2{{ user.id }}" class="form-label">Confirmar Nueva Contraseña</label>
+                                    <input type="password" class="form-control" id="password2{{ user.id }}" name="password2">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para eliminar usuario -->
+        <div class="modal fade" id="deleteUserModal{{ user.id }}" tabindex="-1" aria-labelledby="deleteUserModalLabel{{ user.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteUserModalLabel{{ user.id }}">Eliminar Usuario</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>¿Está seguro de que desea eliminar al usuario <strong>{{ user.first_name }} {{ user.last_name }}</strong>?</p>
+                        
+                        {% if user.is_admin() and users|selectattr('role', 'equalto', 'admin')|list|length <= 1 %}
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle me-2"></i>
+                                No se puede eliminar el único usuario administrador del sistema.
+                            </div>
+                        {% elif user.id == current_user.id %}
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle me-2"></i>
+                                No puedes eliminar tu propio usuario.
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Esta acción no se puede deshacer. Todos los datos asociados a este usuario serán eliminados.
+                            </div>
+                            
+                            {% if user.role == 'teacher' and user.teacher_profile and user.teacher_profile.assignments.count() > 0 %}
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-circle me-2"></i>
+                                    Este profesor tiene {{ user.teacher_profile.assignments.count() }} asignaciones. Debe eliminar las asignaciones antes de eliminar al usuario.
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <form action="{{ url_for('admin.delete_user', id=user.id) }}" method="POST">
+                            <button type="submit" class="btn btn-danger" 
+                                    {% if (user.is_admin() and users|selectattr('role', 'equalto', 'admin')|list|length <= 1) or 
+                                           user.id == current_user.id or 
+                                           (user.role == 'teacher' and user.teacher_profile and user.teacher_profile.assignments.count() > 0) %}
+                                    disabled
+                                    {% endif %}>
+                                Eliminar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para reenviar invitación -->
+        <div class="modal fade" id="resendInvitationModal{{ user.id }}" tabindex="-1" aria-labelledby="resendInvitationModalLabel{{ user.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="resendInvitationModalLabel{{ user.id }}">Reenviar Invitación</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>¿Desea reenviar la invitación de registro a <strong>{{ user.first_name }} {{ user.last_name }}</strong>?</p>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Se enviará un correo electrónico a <strong>{{ user.email }}</strong> con las instrucciones para completar el registro.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <form action="{{ url_for('admin.resend_invitation', id=user.id) }}" method="POST">
+                            <button type="submit" class="btn btn-primary">Reenviar Invitación</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    $(document).ready(function() {
+        // Mostrar/ocultar campos específicos para profesores según el rol seleccionado
+        $('#role').change(function() {
+            if ($(this).val() === 'teacher') {
+                $('.teacher-field').show();
+            } else {
+                $('.teacher-field').hide();
+            }
+        });
+
+        // También para los modales de edición
+        $('[id^=role]').change(function() {
+            const userId = $(this).attr('id').replace('role', '');
+            if ($(this).val() === 'teacher') {
+                $('.teacher-field').show();
+            } else {
+                $('.teacher-field').hide();
+            }
+        });
+
+        // Inicializar select2 para mejorar la selección
+        if ($.fn.select2) {
+            $('.form-select').select2({
+                width: '100%',
+                placeholder: 'Seleccione una opción'
+            });
+        }
+
+        // Activar la pestaña correspondiente si viene de un filtro
+        const urlParams = new URLSearchParams(window.location.search);
+        const role = urlParams.get('role');
+        const status = urlParams.get('status');
+
+        if (role === 'admin') {
+            $('#admins-tab').tab('show');
+        } else if (role === 'teacher') {
+            $('#teachers-tab').tab('show');
+        } else if (status === 'unregistered') {
+            $('#unregistered-tab').tab('show');
+        }
+    });
+</script>
+{% endblock %}

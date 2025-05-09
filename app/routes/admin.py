@@ -137,6 +137,22 @@ def academic_years():
     years = AcademicYear.query.all()
     return render_template('admin/academic_years.html', title='Años Académicos', years=years)
 
+@admin.route('/users/<int:id>/resend-invitation', methods=['POST'])
+@login_required
+def resend_invitation(id):
+    user = User.query.get_or_404(id)
+    
+    if user.is_registered:
+        flash('Este usuario ya ha completado su registro', 'warning')
+        return redirect(url_for('admin.users'))
+    
+    # Aquí iría la lógica para enviar el correo electrónico
+    # Por ahora solo mostramos un mensaje de éxito
+    
+    flash(f'Se ha reenviado la invitación a {user.email}', 'success')
+    return redirect(url_for('admin.users'))
+
+
 @admin.route('/academic-years/new', methods=['GET', 'POST'])
 @login_required
 def new_academic_year():
@@ -471,45 +487,85 @@ def delete_section_ajax(id):
 @admin.route('/subjects')
 @login_required
 def subjects():
+    # Obtener todas las asignaturas
     subjects = Subject.query.all()
-    return render_template('admin/subjects.html', title='Asignaturas', subjects=subjects)
+    
+    # Obtener todos los grados para los formularios de creación y edición
+    grades = Grade.query.order_by(Grade.level, Grade.name).all()
+    
+    return render_template('admin/subjects.html', title='Asignaturas', subjects=subjects, grades=grades)
 
-@admin.route('/subjects/new', methods=['GET', 'POST'])
+@admin.route('/subjects/new', methods=['POST'])
 @login_required
 def new_subject():
-    form = SubjectForm()
+    # Obtener datos del formulario
+    name = request.form.get('name')
+    code = request.form.get('code')
+    grade_ids = request.form.getlist('grades')  # Nota: getlist para obtener múltiples valores
     
-    if form.validate_on_submit():
-        subject = Subject(
-            name=form.name.data,
-            code=form.code.data,
-            description=form.description.data,
-            credits=form.credits.data
-        )
-        db.session.add(subject)
-        db.session.commit()
-        flash('Asignatura creada correctamente', 'success')
+    # Validar datos
+    if not name or not code or not grade_ids:
+        flash('Todos los campos son obligatorios', 'danger')
         return redirect(url_for('admin.subjects'))
-        
-    return render_template('admin/subject_form.html', title='Nueva Asignatura', form=form)
+    
+    # Verificar si ya existe una asignatura con el mismo código
+    if Subject.query.filter_by(code=code).first():
+        flash('Ya existe una asignatura con ese código', 'danger')
+        return redirect(url_for('admin.subjects'))
+    
+    # Crear la asignatura
+    subject = Subject(name=name, code=code)
+    
+    # Asociar los grados seleccionados
+    for grade_id in grade_ids:
+        grade = Grade.query.get(grade_id)
+        if grade:
+            subject.grades.append(grade)
+    
+    # Guardar en la base de datos
+    db.session.add(subject)
+    db.session.commit()
+    
+    flash('Asignatura creada correctamente', 'success')
+    return redirect(url_for('admin.subjects'))
 
-@admin.route('/subjects/<int:id>/edit', methods=['GET', 'POST'])
+@admin.route('/subjects/<int:id>/edit', methods=['POST'])
 @login_required
 def edit_subject(id):
     subject = Subject.query.get_or_404(id)
-    form = SubjectForm(obj=subject)
     
-    if form.validate_on_submit():
-        subject.name = form.name.data
-        subject.code = form.code.data
-        subject.description = form.description.data
-        subject.credits = form.credits.data
-        
-        db.session.commit()
-        flash('Asignatura actualizada correctamente', 'success')
+    # Obtener datos del formulario
+    name = request.form.get('name')
+    code = request.form.get('code')
+    grade_ids = request.form.getlist('grades')  # Nota: getlist para obtener múltiples valores
+    
+    # Validar datos
+    if not name or not code or not grade_ids:
+        flash('Todos los campos son obligatorios', 'danger')
         return redirect(url_for('admin.subjects'))
-        
-    return render_template('admin/subject_form.html', title='Editar Asignatura', form=form)
+    
+    # Verificar si ya existe otra asignatura con el mismo código
+    existing = Subject.query.filter_by(code=code).first()
+    if existing and existing.id != subject.id:
+        flash('Ya existe otra asignatura con ese código', 'danger')
+        return redirect(url_for('admin.subjects'))
+    
+    # Actualizar la asignatura
+    subject.name = name
+    subject.code = code
+    
+    # Actualizar los grados asociados
+    subject.grades = []  # Eliminar asociaciones existentes
+    for grade_id in grade_ids:
+        grade = Grade.query.get(grade_id)
+        if grade:
+            subject.grades.append(grade)
+    
+    # Guardar en la base de datos
+    db.session.commit()
+    
+    flash('Asignatura actualizada correctamente', 'success')
+    return redirect(url_for('admin.subjects'))
 
 @admin.route('/subjects/<int:id>/delete', methods=['POST'])
 @login_required

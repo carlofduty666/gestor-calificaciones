@@ -64,6 +64,12 @@ class Section(db.Model):
     
     def __repr__(self):
         return f'<Section {self.grade.name}{self.name}>'
+    
+subject_grade = db.Table('subject_grade',
+    db.Column('subject_id', db.Integer, db.ForeignKey('subjects.id'), primary_key=True),
+    db.Column('grade_id', db.Integer, db.ForeignKey('grades.id'), primary_key=True),
+    db.Column('created_at', db.DateTime, default=datetime.utcnow)
+)
 
 class Subject(db.Model):
     __tablename__ = 'subjects'
@@ -78,7 +84,8 @@ class Subject(db.Model):
     grade_types = db.relationship('GradeType', backref='subject', lazy='dynamic', cascade='all, delete-orphan')
     student_grades = db.relationship('StudentGrade', backref='subject', lazy='dynamic', cascade='all, delete-orphan')
     final_grades = db.relationship('FinalGrade', backref='subject', lazy='dynamic', cascade='all, delete-orphan')
-    
+    grades = db.relationship('Grade', secondary=subject_grade, backref=db.backref('subjects', lazy='dynamic'))
+
     def __repr__(self):
         return f'<Subject {self.name}>'
 
