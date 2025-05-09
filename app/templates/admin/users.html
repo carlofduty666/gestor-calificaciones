@@ -507,8 +507,8 @@
                         <div class="modal-body">
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label for="username" class="form-label">Nombre de Usuario</label>
-                                    <input type="text" class="form-control" id="username" name="username" required>
+                                    <label for="identification_number" class="form-label">Número de Cédula</label>
+                                    <input type="text" class="form-control" id="identification_number" name="identification_number" required>
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="email" class="form-label">Email</label>
@@ -619,10 +619,10 @@
                     <form action="{{ url_for('admin.edit_user', id=user.id) }}" method="POST">
                         <div class="modal-body">
                             <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="username{{ user.id }}" class="form-label">Nombre de Usuario</label>
-                                    <input type="text" class="form-control" id="username{{ user.id }}" name="username" value="{{ user.username }}" required>
-                                </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="identification_number{{ user.id }}" class="form-label">Número de Cédula</label>
+                                <input type="text" class="form-control" id="identification_number{{ user.id }}" name="identification_number" value="{{ user.identification_number }}" required>
+                            </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="email{{ user.id }}" class="form-label">Email</label>
                                     <input type="email" class="form-control" id="email{{ user.id }}" name="email" value="{{ user.email }}" required>

@@ -145,7 +145,6 @@ class TeacherAssignment(db.Model):
     def __repr__(self):
         return f'<TeacherAssignment {self.teacher.user.last_name} - {self.subject.name} - {self.section.grade.name}{self.section.name}>'
 
-
 class Admin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)

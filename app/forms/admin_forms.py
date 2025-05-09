@@ -82,7 +82,6 @@ class StudentForm(FlaskForm):
         if student is not None and student.id != getattr(self, 'student_id_db', None):
             raise ValidationError('Esta cédula ya está registrada.')
 
-        
 class StudentGradeForm(FlaskForm):
     value = FloatField('Calificación', validators=[DataRequired(), NumberRange(min=0, max=100)])
     comments = StringField('Comentarios', validators=[Optional(), Length(max=200)])

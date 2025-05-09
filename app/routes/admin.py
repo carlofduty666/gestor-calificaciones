@@ -41,74 +41,157 @@ def dashboard():
 @login_required
 def users():
     users = User.query.all()
+    
+    print(users)
+
     return render_template('admin/users.html', title='Gestión de Usuarios', users=users)
 
 @admin.route('/users/new', methods=['GET', 'POST'])
 @login_required
 def new_user():
-    form = UserForm()
-    if form.validate_on_submit():
+    if request.method == 'POST':
+        # Obtener datos del formulario
+        identification_number = request.form.get('identification_number')
+        email = request.form.get('email')
+        first_name = request.form.get('first_name')
+        last_name = request.form.get('last_name')
+        role = request.form.get('role')
+        password = request.form.get('password')
+        password2 = request.form.get('password2')
+        specialization = request.form.get('specialization')
+
+        # Imprimir los valores para depuración
+        # print(f"identification_number: {identification_number}")
+        # print(f"email: {email}")
+        # print(f"first_name: {first_name}")
+        # print(f"last_name: {last_name}")
+        # print(f"role: {role}")
+        # print(f"password: {'*****' if password else None}")  # No mostrar la contraseña real
+        # print(f"specialization: {specialization}")
+        
+        # Validaciones básicas
+        if not identification_number or not email or not first_name or not last_name or not role or not password:
+            flash('Todos los campos son requeridos', 'danger')
+            return redirect(url_for('admin.users'))
+            
+        if password != password2:
+            flash('Las contraseñas no coinciden', 'danger')
+            return redirect(url_for('admin.users'))
+            
+        # Verificar si el usuario ya existe
+        if User.query.filter_by(identification_number=identification_number).first():
+            flash('Esta cédula ya está registrada', 'danger')
+            return redirect(url_for('admin.users'))
+            
+        if User.query.filter_by(email=email).first():
+            flash('El email ya está registrado', 'danger')
+            return redirect(url_for('admin.users'))
+        
+        # Crear el usuario
         user = User(
-            username=form.username.data,
-            email=form.email.data,
-            first_name=form.first_name.data,
-            last_name=form.last_name.data,
-            role=form.role.data
+            identification_number=identification_number,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            role=role,
+            is_registered=True  # Como lo crea un admin, se considera registrado
         )
-        user.set_password(form.password.data)
+        user.set_password(password)
         db.session.add(user)
         
         # Si es profesor, crear perfil de profesor
-        if form.role.data == 'teacher':
-            teacher = Teacher(user=user, specialization=form.specialization.data)
+        if role == 'teacher':
+            teacher = Teacher(
+                user=user, 
+                specialization=specialization,
+                identification_number=identification_number
+            )
             db.session.add(teacher)
             
         db.session.commit()
         flash('Usuario creado correctamente', 'success')
         return redirect(url_for('admin.users'))
-        
-    return render_template('admin/user_form.html', title='Nuevo Usuario', form=form)
+
+
+    
+    # Si es GET, mostrar el formulario en un modal
+    # Como ahora usamos modales, simplemente redirigimos a la página de usuarios
+    return redirect(url_for('admin.users'))
 
 @admin.route('/users/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_user(id):
     user = User.query.get_or_404(id)
-    form = UserForm(obj=user)
     
-    # No permitir cambiar el rol si es el único administrador
-    if user.is_admin() and User.query.filter_by(role='admin').count() == 1:
-        form.role.render_kw = {'disabled': 'disabled'}
-    
-    if form.validate_on_submit():
-        user.username = form.username.data
-        user.email = form.email.data
-        user.first_name = form.first_name.data
-        user.last_name = form.last_name.data
+    if request.method == 'POST':
+        # Obtener datos del formulario
+        identification_number = request.form.get('identification_number')
+        email = request.form.get('email')
+        first_name = request.form.get('first_name')
+        last_name = request.form.get('last_name')
+        role = request.form.get('role')
+        password = request.form.get('password')
+        password2 = request.form.get('password2')
+        specialization = request.form.get('specialization')
+        
+        # Validaciones básicas
+        if not identification_number or not email or not first_name or not last_name or not role:
+            flash('Todos los campos son requeridos excepto la contraseña', 'danger')
+            return redirect(url_for('admin.users'))
+            
+        if password and password != password2:
+            flash('Las contraseñas no coinciden', 'danger')
+            return redirect(url_for('admin.users'))
+            
+        # Verificar si el usuario ya existe
+        existing_user = User.query.filter_by(identification_number=identification_number).first()
+        if existing_user and existing_user.id != user.id:
+            flash('Esta cédula ya está registrada', 'danger')
+            return redirect(url_for('admin.users'))
+            
+        existing_email = User.query.filter_by(email=email).first()
+        if existing_email and existing_email.id != user.id:
+            flash('El email ya está registrado', 'danger')
+            return redirect(url_for('admin.users'))
+        
+        # No permitir cambiar el rol si es el único administrador
+        if user.is_admin() and User.query.filter_by(role='admin').count() == 1 and role != 'admin':
+            flash('No se puede cambiar el rol del único administrador', 'danger')
+            return redirect(url_for('admin.users'))
+        
+        # Actualizar el usuario
+        user.identification_number = identification_number
+        user.email = email
+        user.first_name = first_name
+        user.last_name = last_name
         
         # Solo cambiar el rol si no es el único administrador
         if not (user.is_admin() and User.query.filter_by(role='admin').count() == 1):
-            user.role = form.role.data
+            user.role = role
         
-        if form.password.data:
-            user.set_password(form.password.data)
+        if password:
+            user.set_password(password)
             
         # Actualizar o crear perfil de profesor
-        if user.role == 'teacher':
+        if role == 'teacher':
             if user.teacher_profile:
-                user.teacher_profile.specialization = form.specialization.data
+                user.teacher_profile.specialization = specialization
+                user.teacher_profile.identification_number = identification_number
             else:
-                teacher = Teacher(user=user, specialization=form.specialization.data)
+                teacher = Teacher(
+                    user=user, 
+                    specialization=specialization,
+                    identification_number=identification_number
+                )
                 db.session.add(teacher)
                 
         db.session.commit()
         flash('Usuario actualizado correctamente', 'success')
         return redirect(url_for('admin.users'))
-        
-    # Si es profesor, cargar especialización
-    if user.teacher_profile:
-        form.specialization.data = user.teacher_profile.specialization
-        
-    return render_template('admin/user_form.html', title='Editar Usuario', form=form, user=user)
+    
+    # Si es GET, mostrar el formulario en un modal
+    # Como ahora usamos modales, simplemente redirigimos a la página de usuarios
+    return redirect(url_for('admin.users'))
 
 @admin.route('/users/<int:id>/delete', methods=['POST'])
 @login_required
@@ -130,13 +213,6 @@ def delete_user(id):
     flash('Usuario eliminado correctamente', 'success')
     return redirect(url_for('admin.users'))
 
-# Rutas para gestión de años académicos
-@admin.route('/academic-years')
-@login_required
-def academic_years():
-    years = AcademicYear.query.all()
-    return render_template('admin/academic_years.html', title='Años Académicos', years=years)
-
 @admin.route('/users/<int:id>/resend-invitation', methods=['POST'])
 @login_required
 def resend_invitation(id):
@@ -151,6 +227,14 @@ def resend_invitation(id):
     
     flash(f'Se ha reenviado la invitación a {user.email}', 'success')
     return redirect(url_for('admin.users'))
+
+# Rutas para gestión de años académicos
+@admin.route('/academic-years')
+@login_required
+def academic_years():
+    years = AcademicYear.query.all()
+    return render_template('admin/academic_years.html', title='Años Académicos', years=years)
+
 
 
 @admin.route('/academic-years/new', methods=['GET', 'POST'])
@@ -1017,14 +1101,65 @@ def new_teacher():
         db.session.add(teacher)
         db.session.commit()
         
+        
         flash('Profesor creado correctamente', 'success')
         return redirect(url_for('admin.teachers'))
         
     return render_template('admin/teacher_form.html', title='Nuevo Profesor', form=form)
 
-@admin.route('/teachers/pre-register', methods=['GET', 'POST'])
+@admin.route('/users/pre-register-teacher', methods=['POST'])
 @login_required
 def pre_register_teacher():
+    if request.method == 'POST':
+        identification_number = request.form.get('identification_number')
+        email = request.form.get('email')
+        first_name = request.form.get('first_name')
+        last_name = request.form.get('last_name')
+        specialization = request.form.get('specialization')
+        
+        # Validaciones básicas
+        if not identification_number or not email or not first_name or not last_name:
+            flash('Todos los campos son requeridos excepto la especialización', 'danger')
+            return redirect(url_for('admin.users'))
+            
+        # Verificar si el usuario ya existe
+        if User.query.filter_by(identification_number=identification_number).first():
+            flash('Esta cédula ya está registrada', 'danger')
+            return redirect(url_for('admin.users'))
+            
+        if User.query.filter_by(email=email).first():
+            flash('Este email ya está registrado', 'danger')
+            return redirect(url_for('admin.users'))
+        
+        # Crear el usuario pre-registrado
+        user = User(
+            identification_number=identification_number,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            role='teacher',
+            is_registered=False  # No está registrado hasta que complete su registro
+        )
+        db.session.add(user)
+        
+        # Crear perfil de profesor
+        teacher = Teacher(
+            user=user, 
+            specialization=specialization,
+            identification_number=identification_number,
+            is_registered=False
+        )
+        db.session.add(teacher)
+            
+        db.session.commit()
+        
+        # Aquí iría el código para enviar un email de invitación
+        
+        flash('Profesor pre-registrado correctamente. Se ha enviado un email con instrucciones para completar el registro.', 'success')
+        return redirect(url_for('admin.users'))
+        
+    # Si es GET, redirigir a la página de usuarios
+    return redirect(url_for('admin.users'))
     form = TeacherPreRegistrationForm()
     if form.validate_on_submit():
         # Crear usuario sin contraseña
