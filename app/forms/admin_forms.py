@@ -138,6 +138,14 @@ class TeacherAssignmentForm(FlaskForm):
     section_id = SelectField('Sección', coerce=int, validators=[DataRequired()])
     academic_year_id = SelectField('Año académico', coerce=int, validators=[DataRequired()])
     submit = SubmitField('Guardar')
+    
+    def __init__(self, *args, **kwargs):
+        super(TeacherAssignmentForm, self).__init__(*args, **kwargs)
+        self.teacher_id.choices = [(t.id, f"{t.user.last_name}, {t.user.first_name}") for t in Teacher.query.join(User).order_by(User.last_name, User.first_name).all()]
+        self.subject_id.choices = [(s.id, f"{s.name} ({s.code})") for s in Subject.query.order_by(Subject.name).all()]
+        self.section_id.choices = [(s.id, f"{s.grade.name} '{s.name}'") for s in Section.query.join(Grade).order_by(Grade.level, Grade.name, Section.name).all()]
+        self.academic_year_id.choices = [(a.id, a.name) for a in AcademicYear.query.order_by(AcademicYear.start_date.desc()).all()]
+
 
 class GradeTypeForm(FlaskForm):
     name = StringField('Nombre', validators=[DataRequired(), Length(max=64)])

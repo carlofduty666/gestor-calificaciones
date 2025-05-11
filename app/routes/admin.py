@@ -235,8 +235,6 @@ def academic_years():
     years = AcademicYear.query.all()
     return render_template('admin/academic_years.html', title='Años Académicos', years=years)
 
-
-
 @admin.route('/academic-years/new', methods=['GET', 'POST'])
 @login_required
 def new_academic_year():
@@ -877,77 +875,6 @@ def delete_student_ajax(id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Error al eliminar el estudiante: {str(e)}'})
-    
-# Rutas para iframes
-@admin.route('/students/<int:id>/view-iframe')
-@login_required
-def student_view_iframe(id):
-    student = Student.query.get_or_404(id)
-    return render_template('admin/iframes/student_view.html', student=student, now=datetime.now())
-
-@admin.route('/students/<int:id>/edit-iframe')
-@login_required
-def student_edit_iframe(id):
-    student = Student.query.get_or_404(id)
-    form = StudentForm(obj=student)
-    form.section_id.choices = [(s.id, f"{s.grade.name} '{s.name}'") for s in Section.query.join(Grade).order_by(Grade.level, Section.name).all()]
-    grades = Grade.query.all()
-    return render_template('admin/iframes/student_edit.html', form=form, student=student, grades=grades)
-
-@admin.route('/students/<int:id>/edit-iframe-submit', methods=['POST'])
-@login_required
-def student_edit_iframe_submit(id):
-    student = Student.query.get_or_404(id)
-    form = StudentForm()
-    form.section_id.choices = [(s.id, f"{s.grade.name} '{s.name}'") for s in Section.query.join(Grade).order_by(Grade.level, Section.name).all()]
-    
-    if form.validate_on_submit():
-        student.first_name = form.first_name.data
-        student.last_name = form.last_name.data
-        student.student_id = form.student_id.data
-        student.birth_date = form.birth_date.data
-        student.gender = form.gender.data
-        student.address = form.address.data
-        student.phone = form.phone.data
-        student.email = form.email.data
-        student.section_id = form.section_id.data
-        student.is_active = form.is_active.data
-        
-        try:
-            db.session.commit()
-            flash('Estudiante actualizado correctamente', 'success')
-            return render_template('admin/iframes/success.html', message='Estudiante actualizado correctamente', modal_id='editStudentModal', reload=True)
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Error al actualizar el estudiante: {str(e)}', 'danger')
-    
-    return render_template('admin/iframes/student_edit.html', form=form, student=student, grades=Grade.query.all())
-
-@admin.route('/students/<int:id>/delete-iframe')
-@login_required
-def student_delete_iframe(id):
-    student = Student.query.get_or_404(id)
-    return render_template('admin/iframes/student_delete.html', student=student)
-
-@admin.route('/students/<int:id>/delete-iframe-submit', methods=['POST'])
-@login_required
-def student_delete_iframe_submit(id):
-    student = Student.query.get_or_404(id)
-    
-    # Verificar si hay calificaciones asociadas a este estudiante
-    if StudentGrade.query.filter_by(student_id=id).first() or FinalGrade.query.filter_by(student_id=id).first():
-        flash('No se puede eliminar este estudiante porque tiene calificaciones asociadas', 'danger')
-        return render_template('admin/iframes/student_delete.html', student=student)
-    
-    try:
-        db.session.delete(student)
-        db.session.commit()
-        flash('Estudiante eliminado correctamente', 'success')
-        return render_template('admin/iframes/success.html', message='Estudiante eliminado correctamente', modal_id='deleteStudentModal', reload=True)
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Error al eliminar el estudiante: {str(e)}', 'danger')
-        return render_template('admin/iframes/student_delete.html', student=student)
 
 # Ruta para importar estudiantes desde Excel
 @admin.route('/students/import', methods=['POST'])
@@ -1248,92 +1175,143 @@ def delete_teacher(id):
 @admin.route('/assignments')
 @login_required
 def assignments():
-    # Obtener el año académico activo
-    active_year = AcademicYear.query.filter_by(is_active=True).first()
+    # Obtener parámetros de filtrado
+    academic_year_id = request.args.get('academic_year', type=int)
+    teacher_id = request.args.get('teacher', type=int)
+    subject_id = request.args.get('subject', type=int)
+    section_id = request.args.get('section', type=int)
     
-    if not active_year:
-        flash('No hay un año académico activo. Por favor, active un año académico primero.', 'warning')
-        return redirect(url_for('admin.academic_years'))
+    # Consulta base para asignaciones
+    query = TeacherAssignment.query
     
-    assignments = TeacherAssignment.query.filter_by(academic_year_id=active_year.id).all()
-    return render_template('admin/assignments.html', title='Asignaciones de Profesores', assignments=assignments, active_year=active_year)
+    # Aplicar filtros si se proporcionan
+    if academic_year_id:
+        query = query.filter_by(academic_year_id=academic_year_id)
+    if teacher_id:
+        query = query.filter_by(teacher_id=teacher_id)
+    if subject_id:
+        query = query.filter_by(subject_id=subject_id)
+    if section_id:
+        query = query.filter_by(section_id=section_id)
+    
+    # Ordenar por año académico, profesor, asignatura y sección
+    query = query.order_by(
+        TeacherAssignment.academic_year_id.desc(),
+        TeacherAssignment.teacher_id,
+        TeacherAssignment.subject_id,
+        TeacherAssignment.section_id
+    )
+    
+    # Paginar resultados
+    page = request.args.get('page', 1, type=int)
+    pagination = query.paginate(page=page, per_page=20, error_out=False)
+    assignments = pagination.items
+    
+    # Obtener datos para los selectores de filtro
+    academic_years = AcademicYear.query.order_by(AcademicYear.start_date.desc()).all()
+    teachers = Teacher.query.join(User).order_by(User.last_name, User.first_name).all()
+    subjects = Subject.query.order_by(Subject.name).all()
+    
+    # Obtener todas las secciones con sus grados para mostrar en el filtro
+    sections = Section.query.join(Grade).order_by(Grade.level, Grade.name, Section.name).all()
+    
+    # Obtener todos los grados para el modal de nueva asignación
+    grades = Grade.query.order_by(Grade.level, Grade.name).all()
+    
+    return render_template(
+        'admin/assignments.html',
+        title='Asignaciones de Profesores',
+        assignments=assignments,
+        pagination=pagination,
+        academic_years=academic_years,
+        teachers=teachers,
+        subjects=subjects,
+        sections=sections,
+        grades=grades,
+        request=request
+    )
 
-@admin.route('/assignments/new', methods=['GET', 'POST'])
+@admin.route('/assignments/new', methods=['POST'])
 @login_required
 def new_assignment():
-    form = TeacherAssignmentForm()
-    
-    # Cargar opciones para los selects
-    active_year = AcademicYear.query.filter_by(is_active=True).first()
-    if not active_year:
-        flash('No hay un año académico activo. Por favor, active un año académico primero.', 'warning')
-        return redirect(url_for('admin.academic_years'))
-    
-    form.teacher_id.choices = [(t.id, f"{t.user.last_name}, {t.user.first_name}") for t in Teacher.query.join(User).order_by(User.last_name).all()]
-    form.subject_id.choices = [(s.id, s.name) for s in Subject.query.order_by(Subject.name).all()]
-    form.section_id.choices = [(s.id, f"{s.grade.name}{s.name}") for s in Section.query.join(Grade).order_by(Grade.level, Section.name).all()]
-    
-    if form.validate_on_submit():
-        # Verificar si ya existe una asignación para esta combinación
+    if request.method == 'POST':
+        teacher_id = request.form.get('teacher_id', type=int)
+        subject_id = request.form.get('subject_id', type=int)
+        section_id = request.form.get('section_id', type=int)
+        academic_year_id = request.form.get('academic_year_id', type=int)
+        
+        # Validar que todos los campos estén presentes
+        if not all([teacher_id, subject_id, section_id, academic_year_id]):
+            flash('Todos los campos son requeridos', 'danger')
+            return redirect(url_for('admin.assignments'))
+        
+        # Verificar si ya existe una asignación igual
         existing = TeacherAssignment.query.filter_by(
-            teacher_id=form.teacher_id.data,
-            subject_id=form.subject_id.data,
-            section_id=form.section_id.data,
-            academic_year_id=active_year.id
+            teacher_id=teacher_id,
+            subject_id=subject_id,
+            section_id=section_id,
+            academic_year_id=academic_year_id
         ).first()
         
         if existing:
             flash('Ya existe una asignación con estos datos', 'danger')
-            return render_template('admin/assignment_form.html', title='Nueva Asignación', form=form)
+            return redirect(url_for('admin.assignments'))
         
+        # Crear nueva asignación
         assignment = TeacherAssignment(
-            teacher_id=form.teacher_id.data,
-            subject_id=form.subject_id.data,
-            section_id=form.section_id.data,
-            academic_year_id=active_year.id
+            teacher_id=teacher_id,
+            subject_id=subject_id,
+            section_id=section_id,
+            academic_year_id=academic_year_id
         )
+        
         db.session.add(assignment)
         db.session.commit()
         
         flash('Asignación creada correctamente', 'success')
         return redirect(url_for('admin.assignments'))
-        
-    return render_template('admin/assignment_form.html', title='Nueva Asignación', form=form, active_year=active_year)
+    
+    return redirect(url_for('admin.assignments'))
 
-@admin.route('/assignments/<int:id>/edit', methods=['GET', 'POST'])
+@admin.route('/assignments/<int:id>/edit', methods=['POST'])
 @login_required
 def edit_assignment(id):
     assignment = TeacherAssignment.query.get_or_404(id)
-    form = TeacherAssignmentForm(obj=assignment)
     
-    # Cargar opciones para los selects
-    form.teacher_id.choices = [(t.id, f"{t.user.last_name}, {t.user.first_name}") for t in Teacher.query.join(User).order_by(User.last_name).all()]
-    form.subject_id.choices = [(s.id, s.name) for s in Subject.query.order_by(Subject.name).all()]
-    form.section_id.choices = [(s.id, f"{s.grade.name}{s.name}") for s in Section.query.join(Grade).order_by(Grade.level, Section.name).all()]
-    
-    if form.validate_on_submit():
-        # Verificar si ya existe una asignación para esta combinación (excluyendo la actual)
+    if request.method == 'POST':
+        teacher_id = request.form.get('teacher_id', type=int)
+        subject_id = request.form.get('subject_id', type=int)
+        section_id = request.form.get('section_id', type=int)
+        
+        # Validar que todos los campos estén presentes
+        if not all([teacher_id, subject_id, section_id]):
+            flash('Todos los campos son requeridos', 'danger')
+            return redirect(url_for('admin.assignments'))
+        
+        # Verificar si ya existe una asignación igual (excepto esta misma)
         existing = TeacherAssignment.query.filter(
-            TeacherAssignment.teacher_id == form.teacher_id.data,
-            TeacherAssignment.subject_id == form.subject_id.data,
-            TeacherAssignment.section_id == form.section_id.data,
-            TeacherAssignment.academic_year_id == assignment.academic_year_id,
-            TeacherAssignment.id != id
+            TeacherAssignment.id != id,
+            TeacherAssignment.teacher_id == teacher_id,
+            TeacherAssignment.subject_id == subject_id,
+            TeacherAssignment.section_id == section_id,
+            TeacherAssignment.academic_year_id == assignment.academic_year_id
         ).first()
         
         if existing:
             flash('Ya existe una asignación con estos datos', 'danger')
-            return render_template('admin/assignment_form.html', title='Editar Asignación', form=form)
+            return redirect(url_for('admin.assignments'))
         
-        assignment.teacher_id = form.teacher_id.data
-        assignment.subject_id = form.subject_id.data
-        assignment.section_id = form.section_id.data
+        # Actualizar asignación
+        assignment.teacher_id = teacher_id
+        assignment.subject_id = subject_id
+        assignment.section_id = section_id
         
         db.session.commit()
+        
         flash('Asignación actualizada correctamente', 'success')
         return redirect(url_for('admin.assignments'))
-        
-    return render_template('admin/assignment_form.html', title='Editar Asignación', form=form, active_year=assignment.academic_year)
+    
+    return redirect(url_for('admin.assignments'))
 
 @admin.route('/assignments/<int:id>/delete', methods=['POST'])
 @login_required
@@ -1341,12 +1319,22 @@ def delete_assignment(id):
     assignment = TeacherAssignment.query.get_or_404(id)
     
     # Verificar si hay calificaciones asociadas a esta asignación
-    if StudentGrade.query.filter_by(assignment_id=id).first() or FinalGrade.query.filter_by(assignment_id=id).first():
-        flash('No se puede eliminar esta asignación porque tiene calificaciones asociadas', 'danger')
+    # Esta verificación dependerá de cómo estén relacionadas las calificaciones con las asignaciones
+    # Por ejemplo:
+    has_grades = False
+    # has_grades = StudentGrade.query.filter_by(
+    #     teacher_id=assignment.teacher_id,
+    #     subject_id=assignment.subject_id,
+    #     # Otras condiciones según tu modelo de datos
+    # ).first() is not None
+    
+    if has_grades:
+        flash('No se puede eliminar la asignación porque tiene calificaciones asociadas', 'danger')
         return redirect(url_for('admin.assignments'))
     
     db.session.delete(assignment)
     db.session.commit()
+    
     flash('Asignación eliminada correctamente', 'success')
     return redirect(url_for('admin.assignments'))
 

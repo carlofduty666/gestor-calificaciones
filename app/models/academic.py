@@ -142,8 +142,18 @@ class TeacherAssignment(db.Model):
     academic_year_id = db.Column(db.Integer, db.ForeignKey('academic_years.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    # Asegurarse de que las relaciones estén correctamente definidas
+    # teacher = db.relationship('Teacher', backref='assignments')
+    # subject = db.relationship('Subject', backref='assignments')
+    # section = db.relationship('Section', backref='assignments')
+    # academic_year = db.relationship('AcademicYear', backref='assignments')
+    
     def __repr__(self):
         return f'<TeacherAssignment {self.teacher.user.last_name} - {self.subject.name} - {self.section.grade.name}{self.section.name}>'
+    
+    # Método para verificar si la asignación está activa
+    def is_active(self):
+        return self.academic_year.is_active
 
 class Admin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
