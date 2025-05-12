@@ -146,7 +146,6 @@ class TeacherAssignmentForm(FlaskForm):
         self.section_id.choices = [(s.id, f"{s.grade.name} '{s.name}'") for s in Section.query.join(Grade).order_by(Grade.level, Grade.name, Section.name).all()]
         self.academic_year_id.choices = [(a.id, a.name) for a in AcademicYear.query.order_by(AcademicYear.start_date.desc()).all()]
 
-
 class GradeTypeForm(FlaskForm):
     name = StringField('Nombre', validators=[DataRequired(), Length(max=64)])
     weight = FloatField('Peso', validators=[DataRequired(), NumberRange(min=0.1)])

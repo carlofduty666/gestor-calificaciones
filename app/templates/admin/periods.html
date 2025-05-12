@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}Períodos Académicos{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-4 align-items-center">
+            <div class="col-sm-6">
+                <h1 class="m-0 text-gradient">
+                    <i class="fas fa-calendar-alt me-2"></i>Períodos Académicos
+                </h1>
+            </div>
+            <div class="col-sm-6">
+                <div class="float-sm-end">
+                    <button type="button" class="btn btn-primary btn-dashboard" data-bs-toggle="modal" data-bs-target="#newPeriodModal">
+                        <i class="fas fa-plus-circle me-2"></i>Nuevo Período
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <div class="permanent-alert permanent-alert-info mb-4">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Información:</strong> Los períodos académicos son las divisiones del año escolar (trimestres, bimestres, etc.)
+        en los que se organizan las evaluaciones y calificaciones.
+    </div>
+    
+    {% for year in academic_years %}
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">
+                <i class="fas fa-calendar-alt me-2 {% if year.is_active %}text-success{% endif %}"></i>
+                {{ year.name }} 
+                {% if year.is_active %}
+                <span class="badge bg-success ms-2">Activo</span>
+                {% endif %}
+                <small class="text-muted ms-2">
+                    ({{ year.start_date.strftime('%d/%m/%Y') }} - {{ year.end_date.strftime('%d/%m/%Y') }})
+                </small>
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if year.periods.count() > 0 %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Fecha de inicio</th>
+                            <th>Fecha de fin</th>
+                            <th>Evaluaciones</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for period in year.periods %}
+                        <tr class="animate-fade-in delay-{{ loop.index }}">
+                            <td>{{ period.name }}</td>
+                            <td>{{ period.start_date.strftime('%d/%m/%Y') }}</td>
+                            <td>{{ period.end_date.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                {% set eval_count = period.grade_types.count() %}
+                                <span class="badge bg-{{ 'primary' if eval_count > 0 else 'secondary' }}">
+                                    {{ eval_count }} evaluaciones
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#editPeriodModal{{ period.id }}" 
+                                            title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#deletePeriodModal{{ period.id }}" 
+                                            title="Eliminar">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                
+                                <!-- Modal para editar período -->
+                                <div class="modal fade" id="editPeriodModal{{ period.id }}" tabindex="-1" aria-labelledby="editPeriodModalLabel{{ period.id }}" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="editPeriodModalLabel{{ period.id }}">Editar Período</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <form method="POST" action="{{ url_for('admin.edit_period', id=period.id) }}">
+                                                <div class="modal-body">
+                                                    {{ form.hidden_tag() }}
+                                                    <input type="hidden" name="id" value="{{ period.id }}">
+                                                    
+                                                    <div class="mb-3">
+                                                        <label for="academic_year_id{{ period.id }}" class="form-label">Año Académico</label>
+                                                        <select class="form-select" id="academic_year_id{{ period.id }}" name="academic_year_id" required>
+                                                            {% for y in academic_years %}
+                                                                <option value="{{ y.id }}" {% if y.id == period.academic_year_id %}selected{% endif %}>
+                                                                    {{ y.name }} {% if y.is_active %}(Activo){% endif %}
+                                                                </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                    
+                                                    <div class="mb-3">
+                                                        <label for="name{{ period.id }}" class="form-label">Nombre</label>
+                                                        <input type="text" class="form-control" id="name{{ period.id }}" name="name" value="{{ period.name }}" required placeholder="Ej: Primer Trimestre">
+                                                    </div>
+                                                    
+                                                    <div class="row mb-3">
+                                                        <div class="col-md-6">
+                                                            <label for="start_date{{ period.id }}" class="form-label">Fecha de inicio</label>
+                                                            <input type="date" class="form-control" id="start_date{{ period.id }}" name="start_date" value="{{ period.start_date.strftime('%Y-%m-%d') }}" required>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <label for="end_date{{ period.id }}" class="form-label">Fecha de fin</label>
+                                                            <input type="date" class="form-control" id="end_date{{ period.id }}" name="end_date" value="{{ period.end_date.strftime('%Y-%m-%d') }}" required>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Modal para eliminar período -->
+                                <div class="modal fade" id="deletePeriodModal{{ period.id }}" tabindex="-1" aria-labelledby="deletePeriodModalLabel{{ period.id }}" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="deletePeriodModalLabel{{ period.id }}">Eliminar Período</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p>¿Está seguro de que desea eliminar el período <strong>{{ period.name }}</strong>?</p>
+                                                
+                                                {% if period.grade_types.count() > 0 %}
+                                                <div class="alert alert-danger">
+                                                    <i class="fas fa-exclamation-circle me-2"></i>
+                                                    Este período tiene {{ period.grade_types.count() }} evaluaciones asociadas.
+                                                    Si lo elimina, también se eliminarán todas las evaluaciones y calificaciones.
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                <form action="{{ url_for('admin.delete_period', id=period.id) }}" method="POST">
+                                                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                No hay períodos registrados para este año académico.
+                <button type="button" class="btn btn-sm btn-primary ms-2" data-bs-toggle="modal" data-bs-target="#newPeriodModal" data-year-id="{{ year.id }}">
+                    Crear período
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        No hay años académicos registrados.
+        <a href="{{ url_for('admin.new_academic_year') }}" class="alert-link">Crear un nuevo año académico</a>.
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Modal para crear nuevo período -->
+<div class="modal fade" id="newPeriodModal" tabindex="-1" aria-labelledby="newPeriodModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newPeriodModalLabel">Nuevo Período</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.new_period') }}">
+                <div class="modal-body">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        <label for="academic_year_id_new" class="form-label">Año Académico</label>
+                        <select class="form-select" id="academic_year_id_new" name="academic_year_id" required>
+                            {% for year in academic_years %}
+                                <option value="{{ year.id }}" {% if year.is_active %}selected{% endif %}>
+                                    {{ year.name }} {% if year.is_active %}(Activo){% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="name_new" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="name_new" name="name" required placeholder="Ej: Primer Trimestre">
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="start_date_new" class="form-label">Fecha de inicio</label>
+                            <input type="date" class="form-control" id="start_date_new" name="start_date" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="end_date_new" class="form-label">Fecha de fin</label>
+                            <input type="date" class="form-control" id="end_date_new" name="end_date" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // Preseleccionar el año académico cuando se hace clic en "Crear período" desde un año específico
+    document.addEventListener('DOMContentLoaded', function() {
+        const newPeriodModal = document.getElementById('newPeriodModal');
+        if (newPeriodModal) {
+            newPeriodModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const yearId = button.getAttribute('data-year-id');
+                if (yearId) {
+                    const yearSelect = document.getElementById('academic_year_id_new');
+                    if (yearSelect) {
+                        yearSelect.value = yearId;
+                    }
+                }
+            });
+        }
+        
+        // Validar fechas en los formularios
+        const validateDates = function(form) {
+            const startDate = new Date(form.querySelector('[name="start_date"]').value);
+            const endDate = new Date(form.querySelector('[name="end_date"]').value);
+            
+            if (endDate <= startDate) {
+                alert('La fecha de fin debe ser posterior a la fecha de inicio.');
+                return false;
+            }
+            return true;
+        };
+        
+        // Validar formulario de nuevo período
+        const newPeriodForm = document.querySelector('form[action="{{ url_for('admin.new_period') }}"]');
+        if (newPeriodForm) {
+            newPeriodForm.addEventListener('submit', function(e) {
+                if (!validateDates(this)) {
+                    e.preventDefault();
+                }
+            });
+        }
+        
+        // Validar formularios de edición de períodos
+        const editForms = document.querySelectorAll('form[action^="{{ url_for('admin.edit_period', id=0) }}'.replace('0', '')]');
+        editForms.forEach(function(form) {
+            form.addEventListener('submit', function(e) {
+                if (!validateDates(this)) {
+                    e.preventDefault();
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

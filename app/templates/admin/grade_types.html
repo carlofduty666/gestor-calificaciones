@@ -1,0 +1,667 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Evaluaciones{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-4 align-items-center">
+            <div class="col-sm-6">
+                <h1 class="m-0 text-gradient">
+                    <i class="fas fa-calculator me-2"></i>Gestión de Evaluaciones
+                </h1>
+            </div>
+            <div class="col-sm-6">
+                <div class="float-sm-end">
+                    <button type="button" class="btn btn-primary btn-dashboard" data-bs-toggle="modal" data-bs-target="#newEvaluationModal">
+                        <i class="fas fa-plus-circle me-2"></i>Nueva Evaluación
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <!-- Pestañas para navegar entre evaluaciones y calificaciones -->
+    <ul class="nav nav-tabs mb-4" id="evaluationsTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="evaluations-tab" data-bs-toggle="tab" data-bs-target="#evaluations" type="button" role="tab" aria-controls="evaluations" aria-selected="true">
+                <i class="fas fa-list-ul me-2"></i>Evaluaciones
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="grades-tab" data-bs-toggle="tab" data-bs-target="#grades" type="button" role="tab" aria-controls="grades" aria-selected="false">
+                <i class="fas fa-user-graduate me-2"></i>Asignar Calificaciones
+            </button>
+        </li>
+    </ul>
+    
+    <div class="tab-content" id="evaluationsTabContent">
+        <!-- Pestaña de Evaluaciones -->
+        <div class="tab-pane fade show active" id="evaluations" role="tabpanel" aria-labelledby="evaluations-tab">
+            <!-- Filtros para evaluaciones -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form method="GET" action="{{ url_for('admin.evaluations') }}" class="row g-3">
+                        <div class="col-md-3">
+                            <label for="section_filter" class="form-label">Grado y Sección</label>
+                            <select class="form-select" id="section_filter" name="section">
+                                <option value="">Todas las secciones</option>
+                                {% for grade in grades %}
+                                    <optgroup label="{{ grade.name }} ({{ grade.level }})">
+                                        {% for section in grade.sections %}
+                                            <option value="{{ section.id }}" {% if request.args.get('section')|int == section.id %}selected{% endif %}>
+                                                {{ grade.name }} "{{ section.name }}"
+                                            </option>
+                                        {% endfor %}
+                                    </optgroup>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="subject_filter" class="form-label">Asignatura</label>
+                            <select class="form-select" id="subject_filter" name="subject">
+                                <option value="">Todas las asignaturas</option>
+                                {% for subject in subjects %}
+                                    <option value="{{ subject.id }}" {% if request.args.get('subject')|int == subject.id %}selected{% endif %}>
+                                        {{ subject.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="period_filter" class="form-label">Período</label>
+                            <select class="form-select" id="period_filter" name="period">
+                                <option value="">Todos los períodos</option>
+                                {% for period in periods %}
+                                    <option value="{{ period.id }}" {% if request.args.get('period')|int == period.id %}selected{% endif %}>
+                                        {{ period.name }} ({{ period.academic_year.name }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-filter me-2"></i>Filtrar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Tabla de evaluaciones -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Ponderación</th>
+                                    <th>Asignatura</th>
+                                    <th>Grado y Sección</th>
+                                    <th>Profesor</th>
+                                    <th>Período</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for evaluation in evaluations %}
+                                <tr class="animate-fade-in delay-{{ loop.index }}">
+                                    <td>{{ evaluation.name }}</td>
+                                    <td>{{ evaluation.weight * 100 }}%</td>
+                                    <td>{{ evaluation.subject.name }}</td>
+                                    <td>{{ evaluation.section.grade.name }} "{{ evaluation.section.name }}"</td>
+                                    <td>{{ evaluation.teacher.user.get_full_name() }}</td>
+                                    <td>{{ evaluation.period.name }} ({{ evaluation.period.academic_year.name }})</td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="{{ url_for('admin.assign_grades', evaluation_id=evaluation.id) }}" class="btn btn-sm btn-outline-success" title="Asignar Calificaciones">
+                                                <i class="fas fa-pen"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#editEvaluationModal{{ evaluation.id }}" 
+                                                    title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#deleteEvaluationModal{{ evaluation.id }}" 
+                                                    title="Eliminar">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">
+                                        <div class="alert alert-info mb-0">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            No hay evaluaciones registradas con los filtros seleccionados.
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Pestaña de Asignar Calificaciones -->
+        <div class="tab-pane fade" id="grades" role="tabpanel" aria-labelledby="grades-tab">
+            <!-- Seleccionar evaluación para asignar calificaciones -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Seleccionar Evaluación</h5>
+                    <form method="GET" action="{{ url_for('admin.evaluations') }}" class="row g-3" id="select-evaluation-form">
+                        <input type="hidden" name="tab" value="grades">
+                        <div class="col-md-3">
+                            <label for="section_grade_filter" class="form-label">Grado y Sección</label>
+                            <select class="form-select" id="section_grade_filter" name="section_grade" required onchange="loadEvaluations()">
+                                <option value="">Seleccione una sección</option>
+                                {% for grade in grades %}
+                                    <optgroup label="{{ grade.name }} ({{ grade.level }})">
+                                        {% for section in grade.sections %}
+                                            <option value="{{ section.id }}" {% if request.args.get('section_grade')|int == section.id %}selected{% endif %}>
+                                                {{ grade.name }} "{{ section.name }}"
+                                            </option>
+                                        {% endfor %}
+                                    </optgroup>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="subject_grade_filter" class="form-label">Asignatura</label>
+                            <select class="form-select" id="subject_grade_filter" name="subject_grade" required onchange="loadEvaluations()">
+                                <option value="">Seleccione una asignatura</option>
+                                {% for subject in subjects %}
+                                    <option value="{{ subject.id }}" {% if request.args.get('subject_grade')|int == subject.id %}selected{% endif %}>
+                                        {{ subject.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="evaluation_filter" class="form-label">Evaluación</label>
+                            <select class="form-select" id="evaluation_filter" name="evaluation" required>
+                                <option value="">Seleccione una evaluación</option>
+                                {% if evaluations_for_selection %}
+                                    {% for evaluation in evaluations_for_selection %}
+                                        <option value="{{ evaluation.id }}" {% if request.args.get('evaluation')|int == evaluation.id %}selected{% endif %}>
+                                            {{ evaluation.name }} ({{ evaluation.weight * 100 }}%)
+                                        </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search me-2"></i>Buscar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Tabla de calificaciones de estudiantes -->
+            {% if students and selected_evaluation %}
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        Calificaciones para {{ selected_evaluation.name }} ({{ selected_evaluation.weight * 100 }}%) - 
+                        {{ selected_evaluation.subject.name }} - 
+                        {{ selected_evaluation.section.grade.name }} "{{ selected_evaluation.section.name }}" - 
+                        {{ selected_evaluation.period.name }}
+                    </h5>
+                    
+                    <form method="POST" action="{{ url_for('admin.save_grades') }}" id="student-grades-form">
+                        <input type="hidden" name="evaluation_id" value="{{ selected_evaluation.id }}">
+                        
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 15%">Cédula</th>
+                                        <th style="width: 20%">Apellidos</th>
+                                        <th style="width: 20%">Nombres</th>
+                                        <th style="width: 15%">Calificación</th>
+                                        <th>Observaciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for student in students %}
+                                    <tr>
+                                        <td>{{ student.student_id }}</td>
+                                        <td>{{ student.last_name }}</td>
+                                        <td>{{ student.first_name }}</td>
+                                        <td>
+                                            <input type="number" 
+                                                   class="form-control" 
+                                                   name="grade_{{ student.id }}" 
+                                                   min="0" 
+                                                   max="100" 
+                                                   step="0.01" 
+                                                   value="{{ student_grades.get(student.id, '') }}">
+                                        </td>
+                                        <td>
+                                            <input type="text" 
+                                                   class="form-control" 
+                                                   name="comment_{{ student.id }}" 
+                                                   value="{{ student_comments.get(student.id, '') }}"
+                                                   placeholder="Observaciones (opcional)">
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="d-flex justify-content-end mt-3">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save me-2"></i>Guardar Calificaciones
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% elif request.args.get('tab') == 'grades' and (request.args.get('section_grade') or request.args.get('subject_grade') or request.args.get('evaluation')) %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                No se encontraron estudiantes o la evaluación seleccionada no existe.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal para crear nueva evaluación -->
+<div class="modal fade" id="newEvaluationModal" tabindex="-1" aria-labelledby="newEvaluationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newEvaluationModalLabel">Nueva Evaluación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.new_evaluation') }}" id="new-evaluation-form">
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="section_id" class="form-label">Grado y Sección</label>
+                            <select class="form-select" id="section_id" name="section_id" required onchange="loadTeachers()">
+                                <option value="">Seleccione una sección</option>
+                                {% for grade in grades %}
+                                    <optgroup label="{{ grade.name }} ({{ grade.level }})">
+                                        {% for section in grade.sections %}
+                                            <option value="{{ section.id }}">
+                                                {{ grade.name }} "{{ section.name }}"
+                                            </option>
+                                        {% endfor %}
+                                    </optgroup>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="teacher_id" class="form-label">Profesor</label>
+                            <select class="form-select" id="teacher_id" name="teacher_id" required onchange="loadSubjects()">
+                                <option value="">Seleccione primero una sección</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="academic_year_id" class="form-label">Año Académico</label>
+                                <select class="form-select" id="academic_year_id" name="academic_year_id" required onchange="loadPeriods()">
+                                    <option value="">Seleccione un año académico</option>
+                                    {% for year in academic_years %}
+                                        <option value="{{ year.id }}" {% if year.is_active %}selected{% endif %}>
+                                            {{ year.name }} {% if year.is_active %}(Activo){% endif %}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="period_id" class="form-label">Período</label>
+                                <select class="form-select" id="period_id" name="period_id" required>
+                                    <option value="">Seleccione primero un año académico</option>
+                                    <!-- Los períodos se cargarán dinámicamente -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="name" class="form-label">Nombre de la Evaluación</label>
+                            <input type="text" class="form-control" id="name" name="name" required placeholder="Ej: Examen Parcial, Tarea, Proyecto...">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="weight" class="form-label">Ponderación (%)</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="weight" name="weight" min="0.1" max="100" step="0.1" required placeholder="Ej: 20">
+                                <span class="input-group-text">%</span>
+                            </div>
+                            <div class="form-text">
+                                Porcentaje que representa esta evaluación en la nota final del período.
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Ponderación Disponible</label>
+                            <div class="alert alert-info mb-0" id="weight-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Seleccione una asignatura, sección y período para ver la ponderación disponible.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="save-evaluation-btn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modales para editar evaluaciones -->
+{% for evaluation in evaluations %}
+<div class="modal fade" id="editEvaluationModal{{ evaluation.id }}" tabindex="-1" aria-labelledby="editEvaluationModalLabel{{ evaluation.id }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editEvaluationModalLabel{{ evaluation.id }}">Editar Evaluación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.edit_evaluation', id=evaluation.id) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="name{{ evaluation.id }}" class="form-label">Nombre de la Evaluación</label>
+                        <input type="text" class="form-control" id="name{{ evaluation.id }}" name="name" value="{{ evaluation.name }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="weight{{ evaluation.id }}" class="form-label">Ponderación (%)</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="weight{{ evaluation.id }}" name="weight" min="0.1" max="100" step="0.1" value="{{ evaluation.weight * 100 }}" required>
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <div class="form-text">
+                            Porcentaje que representa esta evaluación en la nota final del período.
+                        </div>
+                    </div>
+                    <div class="alert alert-info mb-0" id="weight-info-edit{{ evaluation.id }}">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Ponderación disponible (sin contar esta evaluación): 
+                        <span id="available-weight{{ evaluation.id }}">{{ evaluation.available_weight * 100 }}%</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Modales para eliminar evaluaciones -->
+{% for evaluation in evaluations %}
+<div class="modal fade" id="deleteEvaluationModal{{ evaluation.id }}" tabindex="-1" aria-labelledby="deleteEvaluationModalLabel{{ evaluation.id }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteEvaluationModalLabel{{ evaluation.id }}">Eliminar Evaluación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Está seguro de que desea eliminar la evaluación <strong>{{ evaluation.name }}</strong>?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Esta acción eliminará todas las calificaciones asociadas a esta evaluación y no se puede deshacer.
+                </div>
+                
+                {% if evaluation.has_grades %}
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    Esta evaluación tiene calificaciones asignadas. Si la elimina, perderá todos estos datos.
+                </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form method="POST" action="{{ url_for('admin.delete_evaluation', id=evaluation.id) }}">
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // Activar la pestaña correspondiente según el parámetro en la URL
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('tab') === 'grades') {
+            const gradesTab = document.getElementById('grades-tab');
+            if (gradesTab) {
+                const tab = new bootstrap.Tab(gradesTab);
+                tab.show();
+            }
+        }
+    });
+    
+    // Función para cargar profesores según la sección seleccionada
+    function loadTeachers() {
+        const sectionId = document.getElementById('section_id').value;
+        if (!sectionId) return;
+        
+        const teacherSelect = document.getElementById('teacher_id');
+        teacherSelect.innerHTML = '<option value="">Cargando profesores...</option>';
+        
+        fetch(`/admin/api/section/${sectionId}/teachers`)
+            .then(response => response.json())
+            .then(data => {
+                teacherSelect.innerHTML = '<option value="">Seleccione un profesor</option>';
+                data.teachers.forEach(teacher => {
+                    const option = document.createElement('option');
+                    option.value = teacher.id;
+                    option.textContent = teacher.name;
+                    teacherSelect.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                teacherSelect.innerHTML = '<option value="">Error al cargar profesores</option>';
+            });
+    }
+    
+    // Función para cargar asignaturas según el profesor y la sección
+    function loadSubjects() {
+        const sectionId = document.getElementById('section_id').value;
+        const teacherId = document.getElementById('teacher_id').value;
+        if (!sectionId || !teacherId) return;
+        
+        const subjectSelect = document.getElementById('subject_id');
+        subjectSelect.innerHTML = '<option value="">Cargando asignaturas...</option>';
+        
+        fetch(`/admin/api/teacher/${teacherId}/section/${sectionId}/subjects`)
+            .then(response => response.json())
+            .then(data => {
+                subjectSelect.innerHTML = '<option value="">Seleccione una asignatura</option>';
+                data.subjects.forEach(subject => {
+                    const option = document.createElement('option');
+                    option.value = subject.id;
+                    option.textContent = subject.name;
+                    subjectSelect.appendChild(option);
+                });
+                
+                // Verificar ponderación disponible cuando cambia la asignatura
+                subjectSelect.addEventListener('change', checkAvailableWeight);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                subjectSelect.innerHTML = '<option value="">Error al cargar asignaturas</option>';
+            });
+    }
+    
+        // Cargar períodos del año académico seleccionado por defecto
+        const yearSelect = document.getElementById('academic_year_id');
+        if (yearSelect.value) {
+            loadPeriods();
+        }
+
+        function loadPeriods() {
+            const yearId = document.getElementById('academic_year_id').value;
+            const periodSelect = document.getElementById('period_id');
+            
+            if (!yearId) {
+                periodSelect.innerHTML = '<option value="">Seleccione primero un año académico</option>';
+                periodSelect.disabled = true;
+                return;
+            }
+            
+            // Mostrar indicador de carga
+            periodSelect.innerHTML = '<option value="">Cargando períodos...</option>';
+            periodSelect.disabled = true;
+            
+            // Usar la ruta API existente para obtener los períodos
+            fetch(`/admin/api/academic-year/${yearId}/periods`)
+                .then(response => response.json())
+                .then(data => {
+                    periodSelect.innerHTML = '<option value="">Seleccione un período</option>';
+                    
+                    // Agregar cada período al selector
+                    data.periods.forEach(period => {
+                        const option = document.createElement('option');
+                        option.value = period.id;
+                        option.textContent = period.name;
+                        periodSelect.appendChild(option);
+                    });
+                    
+                    // Habilitar el selector de períodos
+                    periodSelect.disabled = false;
+                })
+                .catch(error => {
+                    console.error('Error al cargar períodos:', error);
+                    periodSelect.innerHTML = '<option value="">Error al cargar períodos</option>';
+                    periodSelect.disabled = true;
+                });
+        }
+    
+    // Función para cargar evaluaciones según la sección y asignatura
+    function loadEvaluations() {
+        const sectionId = document.getElementById('section_grade_filter').value;
+        const subjectId = document.getElementById('subject_grade_filter').value;
+        if (!sectionId || !subjectId) return;
+        
+        const evaluationSelect = document.getElementById('evaluation_filter');
+        evaluationSelect.innerHTML = '<option value="">Cargando evaluaciones...</option>';
+        
+    fetch(`/admin/api/section/${sectionId}/subject/${subjectId}/evaluations`)
+        .then(response => response.json())
+        .then(data => {
+            evaluationSelect.innerHTML = '<option value="">Seleccione una evaluación</option>';
+            data.evaluations.forEach(evaluation => {
+                const option = document.createElement('option');
+                option.value = evaluation.id;
+                option.textContent = `${evaluation.name} (${evaluation.weight}%)`;
+                evaluationSelect.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            evaluationSelect.innerHTML = '<option value="">Error al cargar evaluaciones</option>';
+        });
+    }
+
+    // Función para verificar la ponderación disponible
+    function checkAvailableWeight() {
+        const subjectId = document.getElementById('subject_id').value;
+        const periodId = document.getElementById('period_id').value;
+        if (!subjectId || !periodId) return;
+        
+        const weightInfo = document.getElementById('weight-info');
+        weightInfo.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Calculando ponderación disponible...';
+        
+        fetch(`/admin/api/subject/${subjectId}/period/${periodId}/available-weight`)
+            .then(response => response.json())
+            .then(data => {
+                const availableWeight = data.available_weight;
+                const weightInput = document.getElementById('weight');
+                
+                if (availableWeight <= 0) {
+                    weightInfo.innerHTML = `
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <strong class="text-danger">No hay ponderación disponible.</strong> 
+                        Ya se ha asignado el 100% de la ponderación para esta asignatura y período.
+                    `;
+                    weightInput.max = 0;
+                    document.getElementById('save-evaluation-btn').disabled = true;
+                } else {
+                    weightInfo.innerHTML = `
+                        <i class="fas fa-info-circle me-2"></i>
+                        Ponderación disponible: <strong class="text-success">${availableWeight}%</strong>
+                    `;
+                    weightInput.max = availableWeight;
+                    document.getElementById('save-evaluation-btn').disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                weightInfo.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Error al calcular la ponderación disponible.';
+            });
+    }
+
+    // Validar que la ponderación no exceda el límite disponible
+    document.getElementById('new-evaluation-form').addEventListener('submit', function(e) {
+        const subjectId = document.getElementById('subject_id').value;
+        const periodId = document.getElementById('period_id').value;
+        const weight = parseFloat(document.getElementById('weight').value);
+        
+        if (!subjectId || !periodId || isNaN(weight)) return;
+        
+        fetch(`/admin/api/subject/${subjectId}/period/${periodId}/available-weight`)
+            .then(response => response.json())
+            .then(data => {
+                const availableWeight = data.available_weight;
+                
+                if (weight > availableWeight) {
+                    e.preventDefault();
+                    alert(`La ponderación excede el límite disponible (${availableWeight}%).`);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+    });
+
+    // Validar formularios de edición de evaluaciones
+    {% for evaluation in evaluations %}
+    document.querySelector(`form[action="{{ url_for('admin.edit_evaluation', id=evaluation.id) }}"]`).addEventListener('submit', function(e) {
+        const weight = parseFloat(document.getElementById('weight{{ evaluation.id }}').value);
+        const availableWeight = parseFloat(document.getElementById('available-weight{{ evaluation.id }}').textContent);
+        const originalWeight = {{ evaluation.weight * 100 }};
+        
+        // Calcular cuánto puede aumentar la ponderación
+        const maxWeight = availableWeight + originalWeight;
+        
+        if (weight > maxWeight) {
+            e.preventDefault();
+            alert(`La ponderación excede el límite disponible (${maxWeight}%).`);
+        }
+    });
+    {% endfor %}
+</script>
+{% endblock %}
