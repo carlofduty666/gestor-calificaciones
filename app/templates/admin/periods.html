@@ -166,7 +166,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
-            </div>
+            </div>K
             {% else %}
             <div class="alert alert-info">
                 <i class="fas fa-info-circle me-2"></i>
@@ -179,7 +179,7 @@
         </div>
     </div>
     {% else %}
-    <div class="alert alert-warning">
+    <div class="permanent-alert permanent-alert-warning">
         <i class="fas fa-exclamation-triangle me-2"></i>
         No hay años académicos registrados.
         <a href="{{ url_for('admin.new_academic_year') }}" class="alert-link">Crear un nuevo año académico</a>.

@@ -9,10 +9,14 @@ class GradeType(db.Model):
     weight = db.Column(db.Float, nullable=False, default=1.0)
     subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
     period_id = db.Column(db.Integer, db.ForeignKey('periods.id'), nullable=False)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=False)
+    section_id = db.Column(db.Integer, db.ForeignKey('sections.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relaciones
     student_grades = db.relationship('StudentGrade', backref='grade_type', lazy='dynamic', cascade='all, delete-orphan')
+    teacher = db.relationship('Teacher', backref='grade_types')
+    section = db.relationship('Section', backref='grade_types')
     
     def __repr__(self):
         return f'<GradeType {self.name}>'

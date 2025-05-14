@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file, jsonify, current_app
 from io import BytesIO
 import pandas as pd
 from flask_login import login_required, current_user
@@ -2059,197 +2059,96 @@ def statistics():
 @admin.route('/evaluations')
 @login_required
 def evaluations():
-    # Obtener parámetros de filtrado
-    section_id = request.args.get('section', type=int)
-    subject_id = request.args.get('subject', type=int)
-    period_id = request.args.get('period', type=int)
-    tab = request.args.get('tab')
-    
-    # Consulta base para evaluaciones (GradeType)
-    query = db.session.query(
-        GradeType, Subject, Section, Teacher, Period
-    ).join(
-        Subject, GradeType.subject_id == Subject.id
-    ).join(
-        TeacherAssignment, TeacherAssignment.subject_id == Subject.id
-    ).join(
-        Section, TeacherAssignment.section_id == Section.id
-    ).join(
-        Teacher, TeacherAssignment.teacher_id == Teacher.id
-    ).join(
-        Period, GradeType.period_id == Period.id
-    )
-    
-    # Aplicar filtros si se proporcionan
-    if section_id:
-        query = query.filter(Section.id == section_id)
-    if subject_id:
-        query = query.filter(Subject.id == subject_id)
-    if period_id:
-        query = query.filter(Period.id == period_id)
-    
-    # Ejecutar consulta
-    results = query.all()
-    
-    # Transformar resultados en objetos de evaluación con propiedades adicionales
-    evaluations = []
-    for grade_type, subject, section, teacher, period in results:
-        # Verificar si hay calificaciones para esta evaluación
-        has_grades = StudentGrade.query.filter_by(grade_type_id=grade_type.id).first() is not None
+    try:
+        # Obtener parámetros de filtro
+        subject_id = request.args.get('subject_id', type=int)
+        period_id = request.args.get('period_id', type=int)
         
-        # Calcular ponderación disponible para esta asignatura y período (excluyendo esta evaluación)
-        total_weight = db.session.query(db.func.sum(GradeType.weight)).filter(
-            GradeType.subject_id == subject.id,
-            GradeType.period_id == period.id,
-            GradeType.id != grade_type.id
-        ).scalar() or 0
+        # Construir consulta base
+        query = GradeType.query
         
-        available_weight = 1 - total_weight
-        
-        # Añadir propiedades adicionales al objeto GradeType
-        grade_type.subject = subject
-        grade_type.section = section
-        grade_type.teacher = teacher
-        grade_type.period = period
-        grade_type.has_grades = has_grades
-        grade_type.available_weight = available_weight
-        
-        evaluations.append(grade_type)
-    
-    # Datos para la pestaña de asignar calificaciones
-    students = []
-    student_grades = {}
-    student_comments = {}
-    selected_evaluation = None
-    evaluations_for_selection = []
-    
-    if tab == 'grades':
-        section_grade_id = request.args.get('section_grade', type=int)
-        subject_grade_id = request.args.get('subject_grade', type=int)
-        evaluation_id = request.args.get('evaluation', type=int)
-        
-        # Cargar evaluaciones para el selector
-        if section_grade_id and subject_grade_id:
-            evaluations_for_selection = db.session.query(GradeType).join(
-                TeacherAssignment, 
-                (TeacherAssignment.subject_id == GradeType.subject_id) & 
-                (TeacherAssignment.section_id == section_grade_id)
-            ).filter(
-                GradeType.subject_id == subject_grade_id
-            ).all()
-        
-        # Cargar datos para la tabla de calificaciones
-        if evaluation_id:
-            selected_evaluation = GradeType.query.get_or_404(evaluation_id)
+        # Aplicar filtros si existen
+        if subject_id:
+            query = query.filter_by(subject_id=subject_id)
+        if period_id:
+            query = query.filter_by(period_id=period_id)
             
-            # Añadir propiedades adicionales
-            selected_evaluation.subject = Subject.query.get(selected_evaluation.subject_id)
-            selected_evaluation.section = Section.query.get(section_grade_id)
-            selected_evaluation.period = Period.query.get(selected_evaluation.period_id)
-            
-            # Obtener estudiantes de la sección
-            students = Student.query.filter_by(
-                section_id=section_grade_id,
-                is_active=True
-            ).order_by(Student.last_name, Student.first_name).all()
-            
-            # Obtener calificaciones existentes
-            grades = StudentGrade.query.filter_by(
-                grade_type_id=evaluation_id
-            ).filter(
-                StudentGrade.student_id.in_([s.id for s in students])
-            ).all()
-            
-            # Organizar calificaciones por estudiante
-            for grade in grades:
-                student_grades[grade.student_id] = grade.value
-                student_comments[grade.student_id] = grade.comments
-    
-    # Obtener datos para los selectores
-    grades = Grade.query.order_by(Grade.level, Grade.name).all()
-    subjects = Subject.query.order_by(Subject.name).all()
-    periods = Period.query.join(AcademicYear).order_by(
-        AcademicYear.start_date.desc(),
-        Period.start_date
-    ).all()
-    academic_years = AcademicYear.query.order_by(AcademicYear.start_date.desc()).all()
-    active_year = AcademicYear.query.filter_by(is_active=True).first()
-    
-    return render_template(
-        'admin/grade_types.html',
-        title='Gestión de Evaluaciones',
-        evaluations=evaluations,
-        grades=grades,
-        subjects=subjects,
-        periods=periods,
-        academic_years=academic_years,
-        active_year=active_year,
-        students=students,
-        student_grades=student_grades,
-        student_comments=student_comments,
-        selected_evaluation=selected_evaluation,
-        evaluations_for_selection=evaluations_for_selection
-    )
+        # Obtener resultados
+        grade_types = query.order_by(GradeType.period_id, GradeType.subject_id, GradeType.name).all()
+        
+        # Obtener datos para los filtros
+        subjects = Subject.query.order_by(Subject.name).all()
+        academic_years = AcademicYear.query.order_by(AcademicYear.start_date.desc()).all()
+        
+        # Registrar información para depuración
+        current_app.logger.info(f"Evaluaciones: Cargando {len(grade_types)} evaluaciones")
+        current_app.logger.info(f"Evaluaciones: {len(subjects)} asignaturas disponibles")
+        current_app.logger.info(f"Evaluaciones: {len(academic_years)} años académicos disponibles")
+        
+        for year in academic_years:
+            current_app.logger.info(f"Año académico: {year.id} - {year.name} - Activo: {year.is_active}")
+            current_app.logger.info(f"Períodos: {year.periods.count()}")
+        
+        return render_template(
+            'admin/grade_types.html',
+            title='Evaluaciones',
+            grade_types=grade_types,
+            subjects=subjects,
+            academic_years=academic_years,
+            active_subject=subject_id,
+            active_period=period_id
+        )
+    except Exception as e:
+        app.logger.error(f"Error en evaluations: {str(e)}")
+        flash(f'Error al cargar evaluaciones: {str(e)}', 'danger')
+        return redirect(url_for('admin.dashboard'))
 
 @admin.route('/evaluations/new', methods=['POST'])
 @login_required
 def new_evaluation():
-    if request.method == 'POST':
+    try:
         # Obtener datos del formulario
-        section_id = request.form.get('section_id', type=int)
-        teacher_id = request.form.get('teacher_id', type=int)
-        subject_id = request.form.get('subject_id', type=int)
-        academic_year_id = request.form.get('academic_year_id', type=int)
-        period_id = request.form.get('period_id', type=int)
         name = request.form.get('name')
-        weight = float(request.form.get('weight', 0)) / 100  # Convertir de porcentaje a decimal
+        weight = float(request.form.get('weight'))
+        subject_id = int(request.form.get('subject_id'))
+        period_id = int(request.form.get('period_id'))
+        teacher_id = int(request.form.get('teacher_id'))
+        section_id = int(request.form.get('section_id'))
         
-        # Validar que todos los campos estén presentes
-        if not all([section_id, teacher_id, subject_id, academic_year_id, period_id, name, weight]):
-            flash('Todos los campos son requeridos', 'danger')
+        # Validar datos
+        if not name or weight <= 0 or not subject_id or not period_id or not teacher_id or not section_id:
+            flash('Todos los campos son obligatorios', 'danger')
             return redirect(url_for('admin.evaluations'))
+            
+        # Verificar que la asignatura, el período, el profesor y la sección existen
+        subject = Subject.query.get_or_404(subject_id)
+        period = Period.query.get_or_404(period_id)
+        teacher = Teacher.query.get_or_404(teacher_id)
+        section = Section.query.get_or_404(section_id)
         
-        # Validar que el peso esté entre 0 y 1
-        if weight <= 0 or weight > 1:
-            flash('La ponderación debe estar entre 0.1% y 100%', 'danger')
-            return redirect(url_for('admin.evaluations'))
-        
-        # Verificar que la suma de ponderaciones no exceda el 100%
-        existing_types = GradeType.query.filter_by(
+        # Calcular la ponderación total ya asignada
+        grade_types = GradeType.query.filter_by(
             subject_id=subject_id,
-            period_id=period_id
+            period_id=period_id,
+            section_id=section_id
         ).all()
         
-        total_weight = sum(gt.weight for gt in existing_types)
-        if total_weight + weight > 1:
-            flash(f'La suma de ponderaciones excede el 100%. Actualmente hay un {total_weight*100:.1f}% asignado.', 'danger')
+        total_weight = sum(gt.weight for gt in grade_types)
+        available_weight = 100.0 - total_weight
+        
+        # Verificar que la ponderación no exceda el 100%
+        if weight > available_weight:
+            flash(f'La ponderación no puede exceder el {available_weight:.1f}% disponible', 'danger')
             return redirect(url_for('admin.evaluations'))
-        
-        # Verificar que exista una asignación para el profesor, asignatura y sección
-        assignment = TeacherAssignment.query.filter_by(
-            teacher_id=teacher_id,
-            subject_id=subject_id,
-            section_id=section_id,
-            academic_year_id=academic_year_id
-        ).first()
-        
-        if not assignment:
-            # Crear la asignación si no existe
-            assignment = TeacherAssignment(
-                teacher_id=teacher_id,
-                subject_id=subject_id,
-                section_id=section_id,
-                academic_year_id=academic_year_id
-            )
-            db.session.add(assignment)
-            db.session.flush()  # Obtener el ID sin hacer commit
-        
-        # Crear nueva evaluación (GradeType)
+            
+        # Crear nueva evaluación
         grade_type = GradeType(
             name=name,
             weight=weight,
             subject_id=subject_id,
-            period_id=period_id
+            period_id=period_id,
+            teacher_id=teacher_id,
+            section_id=section_id
         )
         
         db.session.add(grade_type)
@@ -2257,68 +2156,219 @@ def new_evaluation():
         
         flash('Evaluación creada correctamente', 'success')
         return redirect(url_for('admin.evaluations'))
-    
-    return redirect(url_for('admin.evaluations'))
-
-@admin.route('/evaluations/<int:id>/edit', methods=['POST'])
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error en new_evaluation: {str(e)}")
+        flash(f'Error al crear evaluación: {str(e)}', 'danger')
+        return redirect(url_for('admin.evaluations'))
+@admin.route('/evaluations/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_evaluation(id):
-    grade_type = GradeType.query.get_or_404(id)
-    
-    if request.method == 'POST':
-        name = request.form.get('name')
-        weight = float(request.form.get('weight', 0)) / 100  # Convertir de porcentaje a decimal
+    try:
+        grade_type = GradeType.query.get_or_404(id)
         
-        # Validar que todos los campos estén presentes
-        if not all([name, weight]):
-            flash('Todos los campos son requeridos', 'danger')
+        if request.method == 'POST':
+            # Obtener datos del formulario
+            name = request.form.get('name')
+            weight = float(request.form.get('weight'))
+            
+            # Validar datos
+            if not name or weight <= 0:
+                flash('Todos los campos son obligatorios', 'danger')
+                return redirect(url_for('admin.edit_evaluation', id=id))
+                
+            # Calcular la ponderación total ya asignada (excluyendo esta evaluación)
+            grade_types = GradeType.query.filter_by(
+                subject_id=grade_type.subject_id,
+                period_id=grade_type.period_id
+            ).filter(GradeType.id != id).all()
+            
+            total_weight = sum(gt.weight for gt in grade_types)
+            available_weight = 100.0 - total_weight
+            
+            # Verificar que la ponderación no exceda el 100%
+            if weight > available_weight:
+                flash(f'La ponderación no puede exceder el {available_weight:.1f}% disponible', 'danger')
+                return redirect(url_for('admin.edit_evaluation', id=id))
+                
+            # Actualizar evaluación
+            grade_type.name = name
+            grade_type.weight = weight
+            
+            db.session.commit()
+            
+            flash('Evaluación actualizada correctamente', 'success')
             return redirect(url_for('admin.evaluations'))
         
-        # Validar que el peso esté entre 0 y 1
-        if weight <= 0 or weight > 1:
-            flash('La ponderación debe estar entre 0.1% y 100%', 'danger')
-            return redirect(url_for('admin.evaluations'))
+        # Obtener datos para el formulario
+        subjects = Subject.query.order_by(Subject.name).all()
+        academic_years = AcademicYear.query.order_by(AcademicYear.start_date.desc()).all()
         
-        # Verificar que la suma de ponderaciones no exceda el 100%
-        existing_types = GradeType.query.filter_by(
-            subject_id=grade_type.subject_id,
-            period_id=grade_type.period_id
-        ).filter(GradeType.id != id).all()
-        
-        total_weight = sum(gt.weight for gt in existing_types)
-        if total_weight + weight > 1:
-            flash(f'La suma de ponderaciones excede el 100%. Actualmente hay un {total_weight*100:.1f}% asignado.', 'danger')
-            return redirect(url_for('admin.evaluations'))
-        
-        # Actualizar evaluación
-        grade_type.name = name
-        grade_type.weight = weight
-        
-        db.session.commit()
-        
-        flash('Evaluación actualizada correctamente', 'success')
+        return render_template(
+            'admin/edit_grade_type.html',
+            title='Editar Evaluación',
+            grade_type=grade_type,
+            subjects=subjects,
+            academic_years=academic_years
+        )
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error en edit_evaluation: {str(e)}")
+        flash(f'Error al editar evaluación: {str(e)}', 'danger')
         return redirect(url_for('admin.evaluations'))
-    
-    return redirect(url_for('admin.evaluations'))
 
 @admin.route('/evaluations/<int:id>/delete', methods=['POST'])
 @login_required
 def delete_evaluation(id):
-    grade_type = GradeType.query.get_or_404(id)
+    try:
+        grade_type = GradeType.query.get_or_404(id)
+        
+        # Verificar si hay calificaciones asociadas
+        student_grades = StudentGrade.query.filter_by(grade_type_id=id).count()
+        if student_grades > 0:
+            flash(f'No se puede eliminar esta evaluación porque tiene {student_grades} calificaciones asociadas', 'danger')
+            return redirect(url_for('admin.evaluations'))
+            
+        db.session.delete(grade_type)
+        db.session.commit()
+        
+        flash('Evaluación eliminada correctamente', 'success')
+        return redirect(url_for('admin.evaluations'))
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error en delete_evaluation: {str(e)}")
+        flash(f'Error al eliminar evaluación: {str(e)}', 'danger')
+        return redirect(url_for('admin.evaluations'))
+
+
+# @admin.route('/evaluations/new', methods=['POST'])
+# @login_required
+# def new_evaluation():
+#     if request.method == 'POST':
+#         # Obtener datos del formulario
+#         section_id = request.form.get('section_id', type=int)
+#         teacher_id = request.form.get('teacher_id', type=int)
+#         subject_id = request.form.get('subject_id', type=int)
+#         academic_year_id = request.form.get('academic_year_id', type=int)
+#         period_id = request.form.get('period_id', type=int)
+#         name = request.form.get('name')
+#         weight = float(request.form.get('weight', 0)) / 100  # Convertir de porcentaje a decimal
+        
+#         # Validar que todos los campos estén presentes
+#         if not all([section_id, teacher_id, subject_id, academic_year_id, period_id, name, weight]):
+#             flash('Todos los campos son requeridos', 'danger')
+#             return redirect(url_for('admin.evaluations'))
+        
+#         # Validar que el peso esté entre 0 y 1
+#         if weight <= 0 or weight > 1:
+#             flash('La ponderación debe estar entre 0.1% y 100%', 'danger')
+#             return redirect(url_for('admin.evaluations'))
+        
+#         # Verificar que la suma de ponderaciones no exceda el 100%
+#         existing_types = GradeType.query.filter_by(
+#             subject_id=subject_id,
+#             period_id=period_id
+#         ).all()
+        
+#         total_weight = sum(gt.weight for gt in existing_types)
+#         if total_weight + weight > 1:
+#             flash(f'La suma de ponderaciones excede el 100%. Actualmente hay un {total_weight*100:.1f}% asignado.', 'danger')
+#             return redirect(url_for('admin.evaluations'))
+        
+#         # Verificar que exista una asignación para el profesor, asignatura y sección
+#         assignment = TeacherAssignment.query.filter_by(
+#             teacher_id=teacher_id,
+#             subject_id=subject_id,
+#             section_id=section_id,
+#             academic_year_id=academic_year_id
+#         ).first()
+        
+#         if not assignment:
+#             # Crear la asignación si no existe
+#             assignment = TeacherAssignment(
+#                 teacher_id=teacher_id,
+#                 subject_id=subject_id,
+#                 section_id=section_id,
+#                 academic_year_id=academic_year_id
+#             )
+#             db.session.add(assignment)
+#             db.session.flush()  # Obtener el ID sin hacer commit
+        
+#         # Crear nueva evaluación (GradeType)
+#         grade_type = GradeType(
+#             name=name,
+#             weight=weight,
+#             subject_id=subject_id,
+#             period_id=period_id
+#         )
+        
+#         db.session.add(grade_type)
+#         db.session.commit()
+        
+#         flash('Evaluación creada correctamente', 'success')
+#         return redirect(url_for('admin.evaluations'))
     
-    # Verificar si hay calificaciones asociadas
-    has_grades = StudentGrade.query.filter_by(grade_type_id=id).first() is not None
+#     return redirect(url_for('admin.evaluations'))
+
+# @admin.route('/evaluations/<int:id>/edit', methods=['POST'])
+# @login_required
+# def edit_evaluation(id):
+#     grade_type = GradeType.query.get_or_404(id)
     
-    if has_grades:
-        # Eliminar todas las calificaciones asociadas
-        StudentGrade.query.filter_by(grade_type_id=id).delete()
+#     if request.method == 'POST':
+#         name = request.form.get('name')
+#         weight = float(request.form.get('weight', 0)) / 100  # Convertir de porcentaje a decimal
+        
+#         # Validar que todos los campos estén presentes
+#         if not all([name, weight]):
+#             flash('Todos los campos son requeridos', 'danger')
+#             return redirect(url_for('admin.evaluations'))
+        
+#         # Validar que el peso esté entre 0 y 1
+#         if weight <= 0 or weight > 1:
+#             flash('La ponderación debe estar entre 0.1% y 100%', 'danger')
+#             return redirect(url_for('admin.evaluations'))
+        
+#         # Verificar que la suma de ponderaciones no exceda el 100%
+#         existing_types = GradeType.query.filter_by(
+#             subject_id=grade_type.subject_id,
+#             period_id=grade_type.period_id
+#         ).filter(GradeType.id != id).all()
+        
+#         total_weight = sum(gt.weight for gt in existing_types)
+#         if total_weight + weight > 1:
+#             flash(f'La suma de ponderaciones excede el 100%. Actualmente hay un {total_weight*100:.1f}% asignado.', 'danger')
+#             return redirect(url_for('admin.evaluations'))
+        
+#         # Actualizar evaluación
+#         grade_type.name = name
+#         grade_type.weight = weight
+        
+#         db.session.commit()
+        
+#         flash('Evaluación actualizada correctamente', 'success')
+#         return redirect(url_for('admin.evaluations'))
     
-    # Eliminar la evaluación
-    db.session.delete(grade_type)
-    db.session.commit()
+#     return redirect(url_for('admin.evaluations'))
+
+# @admin.route('/evaluations/<int:id>/delete', methods=['POST'])
+# @login_required
+# def delete_evaluation(id):
+#     grade_type = GradeType.query.get_or_404(id)
     
-    flash('Evaluación eliminada correctamente', 'success')
-    return redirect(url_for('admin.evaluations'))
+#     # Verificar si hay calificaciones asociadas
+#     has_grades = StudentGrade.query.filter_by(grade_type_id=id).first() is not None
+    
+#     if has_grades:
+#         # Eliminar todas las calificaciones asociadas
+#         StudentGrade.query.filter_by(grade_type_id=id).delete()
+    
+#     # Eliminar la evaluación
+#     db.session.delete(grade_type)
+#     db.session.commit()
+    
+#     flash('Evaluación eliminada correctamente', 'success')
+#     return redirect(url_for('admin.evaluations'))
 
 @admin.route('/save-grades', methods=['POST'])
 @login_required
@@ -2497,21 +2547,21 @@ def api_teacher_section_subjects(teacher_id, section_id):
         ]
     })
 
-@admin.route('/api/academic-year/<int:year_id>/periods')
-@login_required
-def api_academic_year_periods(year_id):
-    """Obtiene los períodos de un año académico"""
-    periods = Period.query.filter_by(academic_year_id=year_id).order_by(Period.start_date).all()
+# @admin.route('/api/academic-year/<int:year_id>/periods')
+# @login_required
+# def api_academic_year_periods(year_id):
+#     # Obtiene los períodos de un año académico
+#     periods = Period.query.filter_by(academic_year_id=year_id).order_by(Period.start_date).all()
     
-    return jsonify({
-        'periods': [
-            {
-                'id': period.id,
-                'name': period.name
-            }
-            for period in periods
-        ]
-    })
+#     return jsonify({
+#         'periods': [
+#             {
+#                 'id': period.id,
+#                 'name': period.name
+#             }
+#             for period in periods
+#         ]
+#     })
 
 @admin.route('/api/section/<int:section_id>/subject/<int:subject_id>/evaluations')
 @login_required
@@ -2650,3 +2700,222 @@ def delete_period(id):
     db.session.commit()
     flash('Período eliminado correctamente', 'success')
     return redirect(url_for('admin.periods'))
+
+@admin.route('/api/academic-year/<int:year_id>/periods')
+@login_required
+def api_periods(year_id):
+    try:
+        # Verificar que el año académico existe
+        academic_year = AcademicYear.query.get_or_404(year_id)
+        
+        # Obtener períodos del año académico
+        periods = Period.query.filter_by(academic_year_id=year_id).order_by(Period.start_date).all()
+        
+        return jsonify({
+            'success': True,
+            'periods': [
+                {
+                    'id': period.id,
+                    'name': period.name,
+                    'start_date': period.start_date.strftime('%Y-%m-%d'),
+                    'end_date': period.end_date.strftime('%Y-%m-%d')
+                }
+                for period in periods
+            ]
+        })
+    except Exception as e:
+        app.logger.error(f"Error en api_periods para año {year_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener períodos: {str(e)}'
+        }), 500
+
+@admin.route('/api/subject/<int:subject_id>/period/<int:period_id>/available-weight')
+@login_required
+def api_available_weight(subject_id, period_id):
+    try:
+        # Verificar que la asignatura y el período existen
+        subject = Subject.query.get_or_404(subject_id)
+        period = Period.query.get_or_404(period_id)
+        
+        # Calcular la ponderación total ya asignada
+        grade_types = GradeType.query.filter_by(
+            subject_id=subject_id,
+            period_id=period_id
+        ).all()
+        
+        total_weight = sum(gt.weight for gt in grade_types)
+        available_weight = 100.0 - total_weight
+        
+        return jsonify({
+            'success': True,
+            'total_weight': total_weight,
+            'available_weight': available_weight
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error en api_available_weight para asignatura {subject_id} y período {period_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al calcular ponderación disponible: {str(e)}'
+        }), 500
+
+# Ruta API para obtener grados asociados a una asignatura
+@admin.route('/api/subject/<int:subject_id>/grades')
+@login_required
+def api_subject_grades(subject_id):
+    try:
+        # Verificar que la asignatura existe
+        subject = Subject.query.get_or_404(subject_id)
+        
+        # En un sistema real, aquí obtendrías los grados asociados a la asignatura
+        # Por ahora, simplemente devolvemos todos los grados
+        grades = Grade.query.order_by(Grade.level, Grade.name).all()
+        
+        return jsonify({
+            'success': True,
+            'grades': [
+                {
+                    'id': grade.id,
+                    'name': grade.name,
+                    'level': grade.level
+                }
+                for grade in grades
+            ]
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error en api_subject_grades para asignatura {subject_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener grados: {str(e)}'
+        }), 500
+
+# Ruta API para obtener secciones de un grado
+@admin.route('/api/grade/<int:grade_id>/sections')
+@login_required
+def api_grade_sections(grade_id):
+    try:
+        # Verificar que el grado existe
+        grade = Grade.query.get_or_404(grade_id)
+        
+        # Obtener secciones del grado
+        sections = Section.query.filter_by(grade_id=grade_id).order_by(Section.name).all()
+        
+        return jsonify({
+            'success': True,
+            'sections': [
+                {
+                    'id': section.id,
+                    'name': section.name,
+                    'grade_id': section.grade_id
+                }
+                for section in sections
+            ]
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error en api_grade_sections para grado {grade_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener secciones: {str(e)}'
+        }), 500
+
+# Ruta API para obtener profesores asignados a una combinación de asignatura, sección y año académico
+@admin.route('/api/assignments')
+@login_required
+def api_assignments():
+    try:
+        # Obtener parámetros
+        subject_id = request.args.get('subject_id', type=int)
+        section_id = request.args.get('section_id', type=int)
+        academic_year_id = request.args.get('academic_year_id', type=int)
+        
+        if not subject_id or not section_id or not academic_year_id:
+            return jsonify({
+                'success': False,
+                'message': 'Se requieren los parámetros subject_id, section_id y academic_year_id'
+            }), 400
+        
+        # Buscar asignaciones que coincidan con los criterios
+        assignments = TeacherAssignment.query.filter_by(
+            subject_id=subject_id,
+            section_id=section_id,
+            academic_year_id=academic_year_id
+        ).all()
+        
+        # Obtener los profesores de esas asignaciones
+        teachers = []
+        for assignment in assignments:
+            teacher = Teacher.query.get(assignment.teacher_id)
+            if teacher and teacher.user:
+                teachers.append({
+                    'id': teacher.id,
+                    'name': f"{teacher.user.first_name} {teacher.user.last_name}",
+                    'specialization': teacher.specialization
+                })
+        
+        return jsonify({
+            'success': True,
+            'teachers': teachers
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error en api_assignments: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener profesores asignados: {str(e)}'
+        }), 500
+
+# Ruta API para obtener años académicos
+@admin.route('/api/academic-years')
+@login_required
+def api_academic_years():
+    try:
+        academic_years = AcademicYear.query.order_by(AcademicYear.start_date.desc()).all()
+        
+        return jsonify({
+            'success': True,
+            'academic_years': [
+                {
+                    'id': year.id,
+                    'name': year.name,
+                    'start_date': year.start_date.strftime('%Y-%m-%d'),
+                    'end_date': year.end_date.strftime('%Y-%m-%d'),
+                    'is_active': year.is_active
+                }
+                for year in academic_years
+            ]
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error en api_academic_years: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener años académicos: {str(e)}'
+        }), 500
+
+# Ruta API para obtener períodos de un año académico
+@admin.route('/api/academic-year/<int:year_id>/periods')
+@login_required
+def api_academic_year_periods(year_id):
+    try:
+        # Verificar que el año académico existe
+        year = AcademicYear.query.get_or_404(year_id)
+        
+        # Obtener períodos del año académico
+        periods = Period.query.filter_by(academic_year_id=year_id).order_by(Period.start_date).all()
+        
+        return jsonify({
+            'success': True,
+            'periods': [
+                {
+                    'id': period.id,
+                    'name': period.name,
+                    'start_date': period.start_date.strftime('%Y-%m-%d'),
+                    'end_date': period.end_date.strftime('%Y-%m-%d')
+                }
+                for period in periods
+            ]
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error en api_academic_year_periods para año {year_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener períodos: {str(e)}'
+        }), 500

@@ -151,6 +151,9 @@ class GradeTypeForm(FlaskForm):
     weight = FloatField('Peso', validators=[DataRequired(), NumberRange(min=0.1)])
     subject_id = SelectField('Asignatura', coerce=int, validators=[DataRequired()])
     period_id = SelectField('Período', coerce=int, validators=[DataRequired()])
+    teacher_id = SelectField('Profesor', coerce=int, validators=[DataRequired()])
+    grade_id = SelectField('Grado', coerce=int, validators=[DataRequired()])
+    section_id = SelectField('Sección', coerce=int, validators=[DataRequired()])
     submit = SubmitField('Guardar')
 
 class SettingsForm(FlaskForm):
