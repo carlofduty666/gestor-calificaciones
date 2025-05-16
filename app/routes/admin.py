@@ -2119,7 +2119,7 @@ def new_evaluation():
         if not name or weight <= 0 or not subject_id or not period_id or not teacher_id or not section_id:
             flash('Todos los campos son obligatorios', 'danger')
             return redirect(url_for('admin.evaluations'))
-            
+        
         # Verificar que la asignatura, el período, el profesor y la sección existen
         subject = Subject.query.get_or_404(subject_id)
         period = Period.query.get_or_404(period_id)
@@ -2133,6 +2133,7 @@ def new_evaluation():
             section_id=section_id
         ).all()
         
+        # Eliminar la multiplicación por 100
         total_weight = sum(gt.weight for gt in grade_types)
         available_weight = 100.0 - total_weight
         
@@ -2140,7 +2141,7 @@ def new_evaluation():
         if weight > available_weight:
             flash(f'La ponderación no puede exceder el {available_weight:.1f}% disponible', 'danger')
             return redirect(url_for('admin.evaluations'))
-            
+        
         # Crear nueva evaluación
         grade_type = GradeType(
             name=name,
@@ -2161,6 +2162,7 @@ def new_evaluation():
         current_app.logger.error(f"Error en new_evaluation: {str(e)}")
         flash(f'Error al crear evaluación: {str(e)}', 'danger')
         return redirect(url_for('admin.evaluations'))
+
 @admin.route('/evaluations/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_evaluation(id):
@@ -2236,139 +2238,9 @@ def delete_evaluation(id):
         return redirect(url_for('admin.evaluations'))
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f"Error en delete_evaluation: {str(e)}")
+        current_app.logger.error(f"Error en delete_evaluation: {str(e)}")
         flash(f'Error al eliminar evaluación: {str(e)}', 'danger')
         return redirect(url_for('admin.evaluations'))
-
-
-# @admin.route('/evaluations/new', methods=['POST'])
-# @login_required
-# def new_evaluation():
-#     if request.method == 'POST':
-#         # Obtener datos del formulario
-#         section_id = request.form.get('section_id', type=int)
-#         teacher_id = request.form.get('teacher_id', type=int)
-#         subject_id = request.form.get('subject_id', type=int)
-#         academic_year_id = request.form.get('academic_year_id', type=int)
-#         period_id = request.form.get('period_id', type=int)
-#         name = request.form.get('name')
-#         weight = float(request.form.get('weight', 0)) / 100  # Convertir de porcentaje a decimal
-        
-#         # Validar que todos los campos estén presentes
-#         if not all([section_id, teacher_id, subject_id, academic_year_id, period_id, name, weight]):
-#             flash('Todos los campos son requeridos', 'danger')
-#             return redirect(url_for('admin.evaluations'))
-        
-#         # Validar que el peso esté entre 0 y 1
-#         if weight <= 0 or weight > 1:
-#             flash('La ponderación debe estar entre 0.1% y 100%', 'danger')
-#             return redirect(url_for('admin.evaluations'))
-        
-#         # Verificar que la suma de ponderaciones no exceda el 100%
-#         existing_types = GradeType.query.filter_by(
-#             subject_id=subject_id,
-#             period_id=period_id
-#         ).all()
-        
-#         total_weight = sum(gt.weight for gt in existing_types)
-#         if total_weight + weight > 1:
-#             flash(f'La suma de ponderaciones excede el 100%. Actualmente hay un {total_weight*100:.1f}% asignado.', 'danger')
-#             return redirect(url_for('admin.evaluations'))
-        
-#         # Verificar que exista una asignación para el profesor, asignatura y sección
-#         assignment = TeacherAssignment.query.filter_by(
-#             teacher_id=teacher_id,
-#             subject_id=subject_id,
-#             section_id=section_id,
-#             academic_year_id=academic_year_id
-#         ).first()
-        
-#         if not assignment:
-#             # Crear la asignación si no existe
-#             assignment = TeacherAssignment(
-#                 teacher_id=teacher_id,
-#                 subject_id=subject_id,
-#                 section_id=section_id,
-#                 academic_year_id=academic_year_id
-#             )
-#             db.session.add(assignment)
-#             db.session.flush()  # Obtener el ID sin hacer commit
-        
-#         # Crear nueva evaluación (GradeType)
-#         grade_type = GradeType(
-#             name=name,
-#             weight=weight,
-#             subject_id=subject_id,
-#             period_id=period_id
-#         )
-        
-#         db.session.add(grade_type)
-#         db.session.commit()
-        
-#         flash('Evaluación creada correctamente', 'success')
-#         return redirect(url_for('admin.evaluations'))
-    
-#     return redirect(url_for('admin.evaluations'))
-
-# @admin.route('/evaluations/<int:id>/edit', methods=['POST'])
-# @login_required
-# def edit_evaluation(id):
-#     grade_type = GradeType.query.get_or_404(id)
-    
-#     if request.method == 'POST':
-#         name = request.form.get('name')
-#         weight = float(request.form.get('weight', 0)) / 100  # Convertir de porcentaje a decimal
-        
-#         # Validar que todos los campos estén presentes
-#         if not all([name, weight]):
-#             flash('Todos los campos son requeridos', 'danger')
-#             return redirect(url_for('admin.evaluations'))
-        
-#         # Validar que el peso esté entre 0 y 1
-#         if weight <= 0 or weight > 1:
-#             flash('La ponderación debe estar entre 0.1% y 100%', 'danger')
-#             return redirect(url_for('admin.evaluations'))
-        
-#         # Verificar que la suma de ponderaciones no exceda el 100%
-#         existing_types = GradeType.query.filter_by(
-#             subject_id=grade_type.subject_id,
-#             period_id=grade_type.period_id
-#         ).filter(GradeType.id != id).all()
-        
-#         total_weight = sum(gt.weight for gt in existing_types)
-#         if total_weight + weight > 1:
-#             flash(f'La suma de ponderaciones excede el 100%. Actualmente hay un {total_weight*100:.1f}% asignado.', 'danger')
-#             return redirect(url_for('admin.evaluations'))
-        
-#         # Actualizar evaluación
-#         grade_type.name = name
-#         grade_type.weight = weight
-        
-#         db.session.commit()
-        
-#         flash('Evaluación actualizada correctamente', 'success')
-#         return redirect(url_for('admin.evaluations'))
-    
-#     return redirect(url_for('admin.evaluations'))
-
-# @admin.route('/evaluations/<int:id>/delete', methods=['POST'])
-# @login_required
-# def delete_evaluation(id):
-#     grade_type = GradeType.query.get_or_404(id)
-    
-#     # Verificar si hay calificaciones asociadas
-#     has_grades = StudentGrade.query.filter_by(grade_type_id=id).first() is not None
-    
-#     if has_grades:
-#         # Eliminar todas las calificaciones asociadas
-#         StudentGrade.query.filter_by(grade_type_id=id).delete()
-    
-#     # Eliminar la evaluación
-#     db.session.delete(grade_type)
-#     db.session.commit()
-    
-#     flash('Evaluación eliminada correctamente', 'success')
-#     return redirect(url_for('admin.evaluations'))
 
 @admin.route('/save-grades', methods=['POST'])
 @login_required
@@ -2592,22 +2464,6 @@ def api_section_subject_evaluations(section_id, subject_id):
         ]
     })
 
-@admin.route('/api/subject/<int:subject_id>/period/<int:period_id>/available-weight')
-@login_required
-def api_subject_period_available_weight(subject_id, period_id):
-    """Calcula la ponderación disponible para una asignatura y período"""
-    total_weight = db.session.query(db.func.sum(GradeType.weight)).filter(
-        GradeType.subject_id == subject_id,
-        GradeType.period_id == period_id
-    ).scalar() or 0
-    
-    available_weight = 1 - total_weight
-    
-    return jsonify({
-        'total_weight': total_weight * 100,
-        'available_weight': available_weight * 100
-    })
-
 # Ruta para configuración de períodos académicos
 @admin.route('/periods')
 @login_required
@@ -2734,26 +2590,51 @@ def api_periods(year_id):
 @login_required
 def api_available_weight(subject_id, period_id):
     try:
+        # Obtener parámetros adicionales de la consulta
+        section_id = request.args.get('section_id', type=int)
+        teacher_id = request.args.get('teacher_id', type=int)
+        
         # Verificar que la asignatura y el período existen
         subject = Subject.query.get_or_404(subject_id)
         period = Period.query.get_or_404(period_id)
         
-        # Calcular la ponderación total ya asignada
-        grade_types = GradeType.query.filter_by(
-            subject_id=subject_id,
-            period_id=period_id
-        ).all()
+        # Construir el filtro base
+        filter_criteria = {
+            'subject_id': subject_id,
+            'period_id': period_id
+        }
         
-        total_weight = sum(gt.weight for gt in grade_types)
+        # Añadir criterios adicionales si están presentes
+        if section_id:
+            filter_criteria['section_id'] = section_id
+            
+        if teacher_id:
+            filter_criteria['teacher_id'] = teacher_id
+        
+        # Calcular la ponderación total ya asignada
+        grade_types = GradeType.query.filter_by(**filter_criteria).all()
+        
+        # Imprimir los valores para depuración
+        weights = [gt.weight for gt in grade_types]
+        current_app.logger.info(f"Valores de weight en la base de datos: {weights}")
+        
+        total_weight = sum(weights)
         available_weight = 100.0 - total_weight
         
         return jsonify({
             'success': True,
             'total_weight': total_weight,
-            'available_weight': available_weight
+            'available_weight': available_weight,
+            'evaluations': [{'id': gt.id, 'name': gt.name, 'weight': gt.weight} for gt in grade_types],
+            'filter_applied': {
+                'subject_id': subject_id,
+                'period_id': period_id,
+                'section_id': section_id,
+                'teacher_id': teacher_id
+            }
         })
     except Exception as e:
-        current_app.logger.error(f"Error en api_available_weight para asignatura {subject_id} y período {period_id}: {str(e)}")
+        current_app.logger.error(f"Error en api_available_weight: {str(e)}")
         return jsonify({
             'success': False,
             'message': f'Error al calcular ponderación disponible: {str(e)}'

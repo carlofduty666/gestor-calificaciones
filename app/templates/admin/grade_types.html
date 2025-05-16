@@ -352,580 +352,661 @@
 {% block scripts %}
 {{ super() }}
 <script>
-    // Variable global para depuración
-    let debugInfo = {
-        academicYears: [],
-        periods: [],
-        grades: [],
-        sections: [],
-        teachers: [],
-        errors: []
-    };
+// Variable global para depuración
+let debugInfo = {
+    academicYears: [],
+    periods: [],
+    grades: [],
+    sections: [],
+    teachers: [],
+    errors: []
+};
 
-    // Función para actualizar la información de depuración
-    function updateDebugInfo() {
-        const debugElement = document.getElementById('debug-academic-years');
-        if (debugElement) {
-            let html = '<ul>';
-            
-            // Información sobre años académicos
-            html += '<li><strong>Años académicos:</strong> ';
-            if (debugInfo.academicYears.length > 0) {
-                html += '<ul>';
-                debugInfo.academicYears.forEach(year => {
-                    html += `<li>${year.name} (ID: ${year.id}, Activo: ${year.active})</li>`;
-                });
-                html += '</ul>';
-            } else {
-                html += 'No hay datos';
-            }
-            html += '</li>';
-            
-            // Información sobre períodos
-            html += '<li><strong>Períodos:</strong> ';
-            if (debugInfo.periods.length > 0) {
-                html += '<ul>';
-                debugInfo.periods.forEach(period => {
-                    html += `<li>${period.name} (ID: ${period.id}, Año: ${period.yearId})</li>`;
-                });
-                html += '</ul>';
-            } else {
-                html += 'No hay datos';
-            }
-            html += '</li>';
-            
-            // Información sobre grados
-            html += '<li><strong>Grados:</strong> ';
-            if (debugInfo.grades.length > 0) {
-                html += '<ul>';
-                debugInfo.grades.forEach(grade => {
-                    html += `<li>${grade.name} (ID: ${grade.id})</li>`;
-                });
-                html += '</ul>';
-            } else {
-                html += 'No hay datos';
-            }
-            html += '</li>';
-            
-            // Información sobre secciones
-            html += '<li><strong>Secciones:</strong> ';
-            if (debugInfo.sections.length > 0) {
-                html += '<ul>';
-                debugInfo.sections.forEach(section => {
-                    html += `<li>${section.name} (ID: ${section.id}, Grado: ${section.gradeId})</li>`;
-                });
-                html += '</ul>';
-            } else {
-                html += 'No hay datos';
-            }
-            html += '</li>';
-            
-            // Información sobre profesores
-            html += '<li><strong>Profesores:</strong> ';
-            if (debugInfo.teachers.length > 0) {
-                html += '<ul>';
-                debugInfo.teachers.forEach(teacher => {
-                    html += `<li>${teacher.name} (ID: ${teacher.id})</li>`;
-                });
-                html += '</ul>';
-            } else {
-                html += 'No hay datos';
-            }
-            html += '</li>';
-            
-            // Errores registrados
-            html += '<li><strong>Errores:</strong> ';
-            if (debugInfo.errors.length > 0) {
-                html += '<ul>';
-                debugInfo.errors.forEach(error => {
-                    html += `<li>${error}</li>`;
-                });
-                html += '</ul>';
-            } else {
-                html += 'No hay errores';
-            }
-            html += '</li>';
-            
+// Función para actualizar la información de depuración
+function updateDebugInfo() {
+    const debugElement = document.getElementById('debug-academic-years');
+    if (debugElement) {
+        let html = '<ul>';
+        
+        // Información sobre años académicos
+        html += '<li><strong>Años académicos:</strong> ';
+        if (debugInfo.academicYears.length > 0) {
+            html += '<ul>';
+            debugInfo.academicYears.forEach(year => {
+                html += `<li>${year.name} (ID: ${year.id}, Activo: ${year.active})</li>`;
+            });
             html += '</ul>';
-            debugElement.innerHTML = html;
+        } else {
+            html += 'No hay datos';
         }
-    }
-
-    // Función para registrar errores
-    function logError(message) {
-        console.error(message);
-        debugInfo.errors.push(`${new Date().toLocaleTimeString()}: ${message}`);
-        updateDebugInfo();
-    }
-
-    // Función para cargar los años académicos
-    function loadAcademicYears() {
-        const yearSelect = document.getElementById('academic_year_id');
+        html += '</li>';
         
-        if (!yearSelect) {
-            logError('Elemento academic_year_id no encontrado');
-            return;
-        }
-        
-        yearSelect.innerHTML = '<option value="">Cargando años académicos...</option>';
-        yearSelect.disabled = true;
-        
-        fetch('/admin/api/academic-years')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Error HTTP: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                debugInfo.academicYears = data.academic_years;
-                updateDebugInfo();
-                
-                yearSelect.innerHTML = '<option value="">Seleccione un año académico</option>';
-                
-                data.academic_years.forEach(year => {
-                    const option = document.createElement('option');
-                    option.value = year.id;
-                    option.textContent = year.name + (year.is_active ? ' (Activo)' : '');
-                    option.selected = year.is_active;
-                    yearSelect.appendChild(option);
-                });
-                
-                yearSelect.disabled = false;
-                
-                // Si hay un año seleccionado (activo), cargar sus períodos
-                if (yearSelect.value) {
-                    loadPeriods();
-                }
-            })
-            .catch(error => {
-                logError(`Error al cargar años académicos: ${error.message}`);
-                yearSelect.innerHTML = '<option value="">Error al cargar años académicos</option>';
-                yearSelect.disabled = true;
+        // Información sobre períodos
+        html += '<li><strong>Períodos:</strong> ';
+        if (debugInfo.periods.length > 0) {
+            html += '<ul>';
+            debugInfo.periods.forEach(period => {
+                html += `<li>${period.name} (ID: ${period.id}, Año: ${period.yearId})</li>`;
             });
-    }
-
-    // Función para cargar los períodos de un año académico
-    function loadPeriods() {
-        const yearId = document.getElementById('academic_year_id')?.value;
-        const periodSelect = document.getElementById('period_id');
-        
-        if (!periodSelect) {
-            logError('Elemento period_id no encontrado');
-            return;
+            html += '</ul>';
+        } else {
+            html += 'No hay datos';
         }
+        html += '</li>';
         
-        if (!yearId) {
-            periodSelect.innerHTML = '<option value="">Seleccione primero un año académico</option>';
-            periodSelect.disabled = true;
-            return;
-        }
-        
-        periodSelect.innerHTML = '<option value="">Cargando períodos...</option>';
-        periodSelect.disabled = true;
-        
-        fetch(`/admin/api/academic-year/${yearId}/periods`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Error HTTP: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                debugInfo.periods = data.periods;
-                updateDebugInfo();
-                
-                periodSelect.innerHTML = '<option value="">Seleccione un período</option>';
-                
-                data.periods.forEach(period => {
-                    const option = document.createElement('option');
-                    option.value = period.id;
-                    option.textContent = period.name;
-                    periodSelect.appendChild(option);
-                });
-                
-                periodSelect.disabled = false;
-                
-                // Si se seleccionó una asignatura y un período, cargar la ponderación disponible
-                const subjectId = document.getElementById('subject_id')?.value;
-                if (subjectId && periodSelect.value) {
-                    loadAvailableWeight();
-                }
-            })
-            .catch(error => {
-                logError(`Error al cargar períodos: ${error.message}`);
-                periodSelect.innerHTML = '<option value="">Error al cargar períodos</option>';
-                periodSelect.disabled = true;
+        // Información sobre grados
+        html += '<li><strong>Grados:</strong> ';
+        if (debugInfo.grades.length > 0) {
+            html += '<ul>';
+            debugInfo.grades.forEach(grade => {
+                html += `<li>${grade.name} (ID: ${grade.id})</li>`;
             });
-    }
-
-    // Función para cargar los grados asociados a una asignatura
-    function loadGrades() {
-        const subjectId = document.getElementById('subject_id')?.value;
-        const gradeSelect = document.getElementById('grade_id');
-        
-        if (!gradeSelect) {
-            logError('Elemento grade_id no encontrado');
-            return;
+            html += '</ul>';
+        } else {
+            html += 'No hay datos';
         }
+        html += '</li>';
         
-        if (!subjectId) {
-            gradeSelect.innerHTML = '<option value="">Seleccione primero una asignatura</option>';
-            gradeSelect.disabled = true;
-            return;
-        }
-        
-        gradeSelect.innerHTML = '<option value="">Cargando grados...</option>';
-        gradeSelect.disabled = true;
-        
-        fetch(`/admin/api/subject/${subjectId}/grades`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Error HTTP: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                debugInfo.grades = data.grades;
-                updateDebugInfo();
-                
-                gradeSelect.innerHTML = '<option value="">Seleccione un grado</option>';
-                
-                data.grades.forEach(grade => {
-                    const option = document.createElement('option');
-                    option.value = grade.id;
-                    option.textContent = grade.name;
-                    gradeSelect.appendChild(option);
-                });
-                
-                gradeSelect.disabled = false;
-            })
-            .catch(error => {
-                logError(`Error al cargar grados: ${error.message}`);
-                gradeSelect.innerHTML = '<option value="">Error al cargar grados</option>';
-                gradeSelect.disabled = true;
+        // Información sobre secciones
+        html += '<li><strong>Secciones:</strong> ';
+        if (debugInfo.sections.length > 0) {
+            html += '<ul>';
+            debugInfo.sections.forEach(section => {
+                html += `<li>${section.name} (ID: ${section.id}, Grado: ${section.gradeId})</li>`;
             });
-    }
-
-    // Función para cargar las secciones de un grado
-    function loadSections() {
-        const gradeId = document.getElementById('grade_id')?.value;
-        const sectionSelect = document.getElementById('section_id');
-        
-        if (!sectionSelect) {
-            logError('Elemento section_id no encontrado');
-            return;
+            html += '</ul>';
+        } else {
+            html += 'No hay datos';
         }
+        html += '</li>';
         
-        if (!gradeId) {
-            sectionSelect.innerHTML = '<option value="">Seleccione primero un grado</option>';
-            sectionSelect.disabled = true;
-            return;
-        }
-        
-        sectionSelect.innerHTML = '<option value="">Cargando secciones...</option>';
-        sectionSelect.disabled = true;
-        
-        fetch(`/admin/api/grade/${gradeId}/sections`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Error HTTP: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                debugInfo.sections = data.sections;
-                updateDebugInfo();
-                
-                sectionSelect.innerHTML = '<option value="">Seleccione una sección</option>';
-                
-                data.sections.forEach(section => {
-                    const option = document.createElement('option');
-                    option.value = section.id;
-                    option.textContent = section.name;
-                    sectionSelect.appendChild(option);
-                });
-                
-                sectionSelect.disabled = false;
-            })
-            .catch(error => {
-                logError(`Error al cargar secciones: ${error.message}`);
-                sectionSelect.innerHTML = '<option value="">Error al cargar secciones</option>';
-                sectionSelect.disabled = true;
+        // Información sobre profesores
+        html += '<li><strong>Profesores:</strong> ';
+        if (debugInfo.teachers.length > 0) {
+            html += '<ul>';
+            debugInfo.teachers.forEach(teacher => {
+                html += `<li>${teacher.name} (ID: ${teacher.id})</li>`;
             });
-    }
-
-    // Función para cargar los profesores asociados a una asignatura y sección
-    function loadTeachers() {
-        const subjectId = document.getElementById('subject_id')?.value;
-        const sectionId = document.getElementById('section_id')?.value;
-        const yearId = document.getElementById('academic_year_id')?.value;
-        const teacherSelect = document.getElementById('teacher_id');
-        
-        if (!teacherSelect) {
-            logError('Elemento teacher_id no encontrado');
-            return;
+            html += '</ul>';
+        } else {
+            html += 'No hay datos';
         }
+        html += '</li>';
         
-        if (!subjectId || !sectionId || !yearId) {
-            teacherSelect.innerHTML = '<option value="">Seleccione primero asignatura, grado y sección</option>';
-            teacherSelect.disabled = true;
-            return;
-        }
-        
-        teacherSelect.innerHTML = '<option value="">Cargando profesores...</option>';
-        teacherSelect.disabled = true;
-        
-        fetch(`/admin/api/assignments?subject_id=${subjectId}&section_id=${sectionId}&academic_year_id=${yearId}`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Error HTTP: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                debugInfo.teachers = data.teachers;
-                updateDebugInfo();
-                
-                teacherSelect.innerHTML = '<option value="">Seleccione un profesor</option>';
-                
-                if (data.teachers.length === 0) {
-                    const option = document.createElement('option');
-                    option.value = "";
-                    option.textContent = "No hay profesores asignados a esta combinación";
-                    option.disabled = true;
-                    teacherSelect.appendChild(option);
-                } else {
-                    data.teachers.forEach(teacher => {
-                        const option = document.createElement('option');
-                        option.value = teacher.id;
-                        option.textContent = teacher.name;
-                        teacherSelect.appendChild(option);
-                    });
-                }
-                
-                teacherSelect.disabled = false;
-            })
-            .catch(error => {
-                logError(`Error al cargar profesores: ${error.message}`);
-                teacherSelect.innerHTML = '<option value="">Error al cargar profesores</option>';
-                teacherSelect.disabled = true;
+        // Errores registrados
+        html += '<li><strong>Errores:</strong> ';
+        if (debugInfo.errors.length > 0) {
+            html += '<ul>';
+            debugInfo.errors.forEach(error => {
+                html += `<li>${error}</li>`;
             });
-    }
-
-    // Función para cargar la ponderación disponible
-    function loadAvailableWeight() {
-        const subjectId = document.getElementById('subject_id')?.value;
-        const periodId = document.getElementById('period_id')?.value;
-        const weightInfo = document.getElementById('weight-info');
-        
-        if (!weightInfo) {
-            logError('Elemento weight-info no encontrado');
-            return;
+            html += '</ul>';
+        } else {
+            html += 'No hay errores';
         }
+        html += '</li>';
         
-        if (!subjectId || !periodId) {
-            weightInfo.innerHTML = '<i class="fas fa-info-circle me-2"></i>Seleccione una asignatura y un período para ver la ponderación disponible.';
-            return;
-        }
-        
-        weightInfo.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Calculando ponderación disponible...';
-        
-        fetch(`/admin/api/subject/${subjectId}/period/${periodId}/available-weight`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Error HTTP: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                const availableWeight = data.available_weight.toFixed(1);
-                const totalWeight = data.total_weight.toFixed(1);
-                
-                if (availableWeight <= 0) {
-                    weightInfo.innerHTML = `
-                        <i class="fas fa-exclamation-circle me-2 text-danger"></i>
-                        <strong class="text-danger">No hay ponderación disponible.</strong> 
-                        Ya se ha asignado el 100% (${totalWeight}%) de la ponderación para esta asignatura en este período.
-                    `;
-                    const saveBtn = document.getElementById('save-evaluation-btn');
-                    if (saveBtn) saveBtn.disabled = true;
-                } else {
-                    weightInfo.innerHTML = `
-                        <i class="fas fa-check-circle me-2 text-success"></i>
-                        <strong>Ponderación disponible: ${availableWeight}%</strong> 
-                        (Asignado: ${totalWeight}%)
-                    `;
-                    const saveBtn = document.getElementById('save-evaluation-btn');
-                    if (saveBtn) saveBtn.disabled = false;
-                    
-                    // Establecer el máximo para el campo de ponderación
-                    const weightInput = document.getElementById('weight');
-                    if (weightInput) {
-                        weightInput.max = availableWeight;
-                        
-                        // Si el valor actual es mayor que el disponible, ajustarlo
-                        if (parseFloat(weightInput.value) > availableWeight) {
-                            weightInput.value = availableWeight;
-                        }
-                    }
-                }
-            })
-            .catch(error => {
-                logError(`Error al cargar ponderación disponible: ${error.message}`);
-                if (weightInfo) {
-                    weightInfo.innerHTML = '<i class="fas fa-exclamation-circle me-2 text-warning"></i>Error al calcular la ponderación disponible.';
-                }
-            });
+        html += '</ul>';
+        debugElement.innerHTML = html;
     }
+}
 
-    // Configurar eventos cuando se carga el documento
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM cargado, inicializando componente de evaluaciones');
-        
-        // Mostrar panel de depuración con tecla especial (Ctrl+Shift+D)
-        document.addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
-                const debugPanel = document.getElementById('debug-info');
-                if (debugPanel) {
-                    debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
-                }
+// Función para registrar errores
+function logError(message) {
+    console.error(message);
+    debugInfo.errors.push(`${new Date().toLocaleTimeString()}: ${message}`);
+    updateDebugInfo();
+}
+
+// Función para cargar los años académicos
+function loadAcademicYears() {
+    const yearSelect = document.getElementById('academic_year_id');
+    
+    if (!yearSelect) {
+        logError('Elemento academic_year_id no encontrado');
+        return;
+    }
+    
+    yearSelect.innerHTML = '<option value="">Cargando años académicos...</option>';
+    yearSelect.disabled = true;
+    
+    fetch('/admin/api/academic-years')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
             }
-        });
-        
-        // Verificar si los elementos necesarios existen
-        const yearSelect = document.getElementById('academic_year_id');
-        const periodSelect = document.getElementById('period_id');
-        const subjectSelect = document.getElementById('subject_id');
-        const gradeSelect = document.getElementById('grade_id');
-        const sectionSelect = document.getElementById('section_id');
-        const teacherSelect = document.getElementById('teacher_id');
-        const weightInfo = document.getElementById('weight-info');
-        
-        if (!yearSelect) logError('Elemento academic_year_id no encontrado');
-        if (!periodSelect) logError('Elemento period_id no encontrado');
-        if (!subjectSelect) logError('Elemento subject_id no encontrado');
-        if (!gradeSelect) logError('Elemento grade_id no encontrado');
-        if (!sectionSelect) logError('Elemento section_id no encontrado');
-        if (!teacherSelect) logError('Elemento teacher_id no encontrado');
-        if (!weightInfo) logError('Elemento weight-info no encontrado');
-        
-        // Inicializar años académicos
-        // Verificar si hay años académicos ya cargados en el select
-        if (yearSelect && yearSelect.options.length <= 1) {
-            console.log('Cargando años académicos mediante API');
-            loadAcademicYears();
-        } else if (yearSelect) {
-            console.log('Años académicos ya cargados en el HTML');
-            // Recopilar información de años académicos para depuración
-            for (let i = 1; i < yearSelect.options.length; i++) {
-                const option = yearSelect.options[i];
-                debugInfo.academicYears.push({
-                    id: option.value,
-                    name: option.text,
-                    active: option.selected
-                });
-            }
+            return response.json();
+        })
+        .then(data => {
+            debugInfo.academicYears = data.academic_years;
             updateDebugInfo();
             
-            // Si hay un año seleccionado, cargar sus períodos
+            yearSelect.innerHTML = '<option value="">Seleccione un año académico</option>';
+            
+            data.academic_years.forEach(year => {
+                const option = document.createElement('option');
+                option.value = year.id;
+                option.textContent = year.name + (year.is_active ? ' (Activo)' : '');
+                option.selected = year.is_active;
+                yearSelect.appendChild(option);
+            });
+            
+            yearSelect.disabled = false;
+            
+            // Si hay un año seleccionado (activo), cargar sus períodos
             if (yearSelect.value) {
                 loadPeriods();
             }
-        }
-        
-        // Configurar eventos para los selectores
-        if (yearSelect) {
-            yearSelect.addEventListener('change', function() {
-                console.log(`Año académico seleccionado: ${this.value}`);
-                loadPeriods();
+        })
+        .catch(error => {
+            logError(`Error al cargar años académicos: ${error.message}`);
+            yearSelect.innerHTML = '<option value="">Error al cargar años académicos</option>';
+            yearSelect.disabled = true;
+        });
+}
+
+// Función para cargar los períodos de un año académico
+function loadPeriods() {
+    const yearId = document.getElementById('academic_year_id')?.value;
+    const periodSelect = document.getElementById('period_id');
+    
+    if (!periodSelect) {
+        logError('Elemento period_id no encontrado');
+        return;
+    }
+    
+    if (!yearId) {
+        periodSelect.innerHTML = '<option value="">Seleccione primero un año académico</option>';
+        periodSelect.disabled = true;
+        return;
+    }
+    
+    periodSelect.innerHTML = '<option value="">Cargando períodos...</option>';
+    periodSelect.disabled = true;
+    
+    fetch(`/admin/api/academic-year/${yearId}/periods`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            debugInfo.periods = data.periods;
+            updateDebugInfo();
+            
+            periodSelect.innerHTML = '<option value="">Seleccione un período</option>';
+            
+            data.periods.forEach(period => {
+                const option = document.createElement('option');
+                option.value = period.id;
+                option.textContent = period.name;
+                periodSelect.appendChild(option);
             });
-        }
-        
-        if (periodSelect) {
-            periodSelect.addEventListener('change', function() {
-                console.log(`Período seleccionado: ${this.value}`);
-                if (document.getElementById('weight-info')) {
-                    loadAvailableWeight();
-                }
+            
+            periodSelect.disabled = false;
+            
+            // Si se seleccionó una asignatura y un período, cargar la ponderación disponible
+            const subjectId = document.getElementById('subject_id')?.value;
+            if (subjectId && periodSelect.value) {
+                loadAvailableWeight();
+            }
+        })
+        .catch(error => {
+            logError(`Error al cargar períodos: ${error.message}`);
+            periodSelect.innerHTML = '<option value="">Error al cargar períodos</option>';
+            periodSelect.disabled = true;
+        });
+}
+
+// Función para cargar los grados asociados a una asignatura
+function loadGrades() {
+    const subjectId = document.getElementById('subject_id')?.value;
+    const gradeSelect = document.getElementById('grade_id');
+    
+    if (!gradeSelect) {
+        logError('Elemento grade_id no encontrado');
+        return;
+    }
+    
+    if (!subjectId) {
+        gradeSelect.innerHTML = '<option value="">Seleccione primero una asignatura</option>';
+        gradeSelect.disabled = true;
+        return;
+    }
+    
+    gradeSelect.innerHTML = '<option value="">Cargando grados...</option>';
+    gradeSelect.disabled = true;
+    
+    fetch(`/admin/api/subject/${subjectId}/grades`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            debugInfo.grades = data.grades;
+            updateDebugInfo();
+            
+            gradeSelect.innerHTML = '<option value="">Seleccione un grado</option>';
+            
+            data.grades.forEach(grade => {
+                const option = document.createElement('option');
+                option.value = grade.id;
+                option.textContent = grade.name;
+                gradeSelect.appendChild(option);
             });
-        }
-        
-        if (subjectSelect) {
-            subjectSelect.addEventListener('change', function() {
-                console.log(`Asignatura seleccionada: ${this.value}`);
-                loadGrades();
-                if (document.getElementById('weight-info')) {
-                    loadAvailableWeight();
-                }
+            
+            gradeSelect.disabled = false;
+        })
+        .catch(error => {
+            logError(`Error al cargar grados: ${error.message}`);
+            gradeSelect.innerHTML = '<option value="">Error al cargar grados</option>';
+            gradeSelect.disabled = true;
+        });
+}
+
+// Función para cargar las secciones de un grado
+function loadSections() {
+    const gradeId = document.getElementById('grade_id')?.value;
+    const sectionSelect = document.getElementById('section_id');
+    
+    if (!sectionSelect) {
+        logError('Elemento section_id no encontrado');
+        return;
+    }
+    
+    if (!gradeId) {
+        sectionSelect.innerHTML = '<option value="">Seleccione primero un grado</option>';
+        sectionSelect.disabled = true;
+        return;
+    }
+    
+    sectionSelect.innerHTML = '<option value="">Cargando secciones...</option>';
+    sectionSelect.disabled = true;
+    
+    fetch(`/admin/api/grade/${gradeId}/sections`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            debugInfo.sections = data.sections;
+            updateDebugInfo();
+            
+            sectionSelect.innerHTML = '<option value="">Seleccione una sección</option>';
+            
+            data.sections.forEach(section => {
+                const option = document.createElement('option');
+                option.value = section.id;
+                option.textContent = section.name;
+                sectionSelect.appendChild(option);
             });
-        }
-        
-        if (gradeSelect) {
-            gradeSelect.addEventListener('change', function() {
-                console.log(`Grado seleccionado: ${this.value}`);
-                loadSections();
-            });
-        }
-        
-        if (sectionSelect) {
-            sectionSelect.addEventListener('change', function() {
-                console.log(`Sección seleccionada: ${this.value}`);
-                loadTeachers();
-            });
-        }
-        
-        // Configurar el modal
-        const modal = document.getElementById('newEvaluationModal');
-        if (modal) {
-            modal.addEventListener('show.bs.modal', function () {
-                console.log('Modal abriéndose');
+            
+            sectionSelect.disabled = false;
+        })
+        .catch(error => {
+            logError(`Error al cargar secciones: ${error.message}`);
+            sectionSelect.innerHTML = '<option value="">Error al cargar secciones</option>';
+            sectionSelect.disabled = true;
+        });
+}
+
+// Función para cargar los profesores asociados a una asignatura y sección
+function loadTeachers() {
+    const subjectId = document.getElementById('subject_id')?.value;
+    const sectionId = document.getElementById('section_id')?.value;
+    const yearId = document.getElementById('academic_year_id')?.value;
+    const teacherSelect = document.getElementById('teacher_id');
+    
+    if (!teacherSelect) {
+        logError('Elemento teacher_id no encontrado');
+        return;
+    }
+    
+    if (!subjectId || !sectionId || !yearId) {
+        teacherSelect.innerHTML = '<option value="">Seleccione primero asignatura, grado y sección</option>';
+        teacherSelect.disabled = true;
+        return;
+    }
+    
+    teacherSelect.innerHTML = '<option value="">Cargando profesores...</option>';
+    teacherSelect.disabled = true;
+    
+    fetch(`/admin/api/assignments?subject_id=${subjectId}&section_id=${sectionId}&academic_year_id=${yearId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            debugInfo.teachers = data.teachers;
+            updateDebugInfo();
+            
+            teacherSelect.innerHTML = '<option value="">Seleccione un profesor</option>';
+            
+            if (data.teachers.length === 0) {
+                const option = document.createElement('option');
+                option.value = "";
+                option.textContent = "No hay profesores asignados a esta combinación";
+                option.disabled = true;
+                teacherSelect.appendChild(option);
+            } else {
+                data.teachers.forEach(teacher => {
+                    const option = document.createElement('option');
+                    option.value = teacher.id;
+                    option.textContent = teacher.name;
+                    teacherSelect.appendChild(option);
+                });
+            }
+            
+            teacherSelect.disabled = false;
+            
+            // Si se ha seleccionado un profesor, actualizar la ponderación disponible
+            if (teacherSelect.value) {
+                loadAvailableWeight();
+            }
+        })
+        .catch(error => {
+            logError(`Error al cargar profesores: ${error.message}`);
+            teacherSelect.innerHTML = '<option value="">Error al cargar profesores</option>';
+            teacherSelect.disabled = true;
+        });
+}
+
+// Función para cargar la ponderación disponible
+function loadAvailableWeight() {
+    const subjectId = document.getElementById('subject_id')?.value;
+    const periodId = document.getElementById('period_id')?.value;
+    const sectionId = document.getElementById('section_id')?.value;
+    const teacherId = document.getElementById('teacher_id')?.value;
+    const weightInfo = document.getElementById('weight-info');
+    
+    if (!weightInfo) {
+        logError('Elemento weight-info no encontrado');
+        return;
+    }
+    
+    if (!subjectId || !periodId) {
+        weightInfo.innerHTML = '<i class="fas fa-info-circle me-2"></i>Seleccione una asignatura y un período para ver la ponderación disponible.';
+        return;
+    }
+    
+    weightInfo.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Calculando ponderación disponible...';
+    
+    // Construir la URL base
+    let url = `/admin/api/subject/${subjectId}/period/${periodId}/available-weight`;
+    
+    // Añadir parámetros adicionales si están disponibles
+    const params = new URLSearchParams();
+    if (sectionId) params.append('section_id', sectionId);
+    if (teacherId) params.append('teacher_id', teacherId);
+    
+    // Añadir los parámetros a la URL si hay alguno
+    if (params.toString()) {
+        url += `?${params.toString()}`;
+    }
+    
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            const availableWeight = data.available_weight.toFixed(1);
+            const totalWeight = data.total_weight.toFixed(1);
+            
+            // Preparar información sobre el filtro aplicado
+            let filterInfo = '';
+            if (data.filter_applied) {
+                const filter = data.filter_applied;
+                filterInfo = `<div class="mt-2 small text-muted">`;
                 
-                // Verificar que los elementos existen
-                const yearSelect = document.getElementById('academic_year_id');
-                const periodSelect = document.getElementById('period_id');
-                const subjectSelect = document.getElementById('subject_id');
-                const gradeSelect = document.getElementById('grade_id');
-                const sectionSelect = document.getElementById('section_id');
-                const teacherSelect = document.getElementById('teacher_id');
-                const weightInfo = document.getElementById('weight-info');
-                
-                if (!yearSelect) logError('Elemento academic_year_id no encontrado en modal');
-                if (!periodSelect) logError('Elemento period_id no encontrado en modal');
-                if (!subjectSelect) logError('Elemento subject_id no encontrado en modal');
-                if (!gradeSelect) logError('Elemento grade_id no encontrado en modal');
-                if (!sectionSelect) logError('Elemento section_id no encontrado en modal');
-                if (!teacherSelect) logError('Elemento teacher_id no encontrado en modal');
-                if (!weightInfo) logError('Elemento weight-info no encontrado en modal');
-                
-                // Reiniciar campos
-                if (weightInfo) {
-                    weightInfo.innerHTML = '<i class="fas fa-info-circle me-2"></i>Seleccione una asignatura y un período para ver la ponderación disponible.';
+                if (filter.section_id && filter.teacher_id) {
+                    filterInfo += `Mostrando ponderación específica para la sección y profesor seleccionados.`;
+                } else if (filter.section_id) {
+                    filterInfo += `Mostrando ponderación para la sección seleccionada (todos los profesores).`;
+                } else if (filter.teacher_id) {
+                    filterInfo += `Mostrando ponderación para el profesor seleccionado (todas las secciones).`;
+                } else {
+                    filterInfo += `Mostrando ponderación general para la asignatura y período.`;
                 }
                 
-                // Si no hay años académicos cargados, cargarlos
-                if (yearSelect && yearSelect.options.length <= 1) {
-                    loadAcademicYears();
+                filterInfo += `</div>`;
+            }
+            
+            if (availableWeight <= 0) {
+                weightInfo.innerHTML = `
+                    <i class="fas fa-exclamation-circle me-2 text-danger"></i>
+                    <strong class="text-danger">No hay ponderación disponible.</strong>
+                    Ya se ha asignado el 100% (${totalWeight}%) de la ponderación para esta asignatura en este período.
+                    ${filterInfo}
+                `;
+                const saveBtn = document.getElementById('save-evaluation-btn');
+                if (saveBtn) saveBtn.disabled = true;
+            } else {
+                weightInfo.innerHTML = `
+                    <i class="fas fa-check-circle me-2 text-success"></i>
+                    <strong>Ponderación disponible: ${availableWeight}%</strong>
+                    (Asignado: ${totalWeight}%)
+                    ${filterInfo}
+                `;
+                
+                // Si hay evaluaciones existentes, mostrarlas
+                if (data.evaluations && data.evaluations.length > 0) {
+                    let evaluationsHtml = `
+                        <div class="mt-3">
+                            <strong>Evaluaciones existentes:</strong>
+                            <ul class="list-group list-group-flush mt-2">
+                    `;
+                    
+                    data.evaluations.forEach(eval => {
+                        evaluationsHtml += `
+                            <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                                ${eval.name}
+                                <span class="badge bg-primary rounded-pill">${eval.weight}%</span>
+                            </li>
+                        `;
+                    });
+                    
+                    evaluationsHtml += `</ul></div>`;
+                    weightInfo.innerHTML += evaluationsHtml;
                 }
-            });
-        }
-        
-        // Configurar validación del formulario
-        const form = document.getElementById('new-evaluation-form');
-        if (form) {
-            form.addEventListener('submit', function(e) {
+                
+                const saveBtn = document.getElementById('save-evaluation-btn');
+                if (saveBtn) saveBtn.disabled = false;
+                
+                // Establecer el máximo para el campo de ponderación
                 const weightInput = document.getElementById('weight');
                 if (weightInput) {
-                    const weight = parseFloat(weightInput.value);
-                    const maxWeight = parseFloat(weightInput.max);
+                    weightInput.max = availableWeight;
                     
-                    if (weight > maxWeight) {
-                        e.preventDefault();
-                        alert(`El peso no puede ser mayor que ${maxWeight}%`);
+                    // Si el valor actual es mayor que el disponible, ajustarlo
+                    if (parseFloat(weightInput.value) > availableWeight) {
+                        weightInput.value = availableWeight;
                     }
                 }
-            });
+            }
+        })
+        .catch(error => {
+            logError(`Error al cargar ponderación disponible: ${error.message}`);
+            if (weightInfo) {
+                weightInfo.innerHTML = '<i class="fas fa-exclamation-circle me-2 text-warning"></i>Error al calcular la ponderación disponible.';
+            }
+        });
+}
+
+// Configurar eventos cuando se carga el documento
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM cargado, inicializando componente de evaluaciones');
+    
+    // Mostrar panel de depuración con tecla especial (Ctrl+Shift+D)
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+            const debugPanel = document.getElementById('debug-info');
+            if (debugPanel) {
+                debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
+            }
         }
     });
+    
+    // Verificar si los elementos necesarios existen
+    const yearSelect = document.getElementById('academic_year_id');
+    const periodSelect = document.getElementById('period_id');
+    const subjectSelect = document.getElementById('subject_id');
+    const gradeSelect = document.getElementById('grade_id');
+    const sectionSelect = document.getElementById('section_id');
+    const teacherSelect = document.getElementById('teacher_id');
+    const weightInfo = document.getElementById('weight-info');
+    
+    if (!yearSelect) logError('Elemento academic_year_id no encontrado');
+    if (!periodSelect) logError('Elemento period_id no encontrado');
+    if (!subjectSelect) logError('Elemento subject_id no encontrado');
+    if (!gradeSelect) logError('Elemento grade_id no encontrado');
+    if (!sectionSelect) logError('Elemento section_id no encontrado');
+    if (!teacherSelect) logError('Elemento teacher_id no encontrado');
+    if (!weightInfo) logError('Elemento weight-info no encontrado');
+    
+    // Inicializar años académicos
+    // Verificar si hay años académicos ya cargados en el select
+    if (yearSelect && yearSelect.options.length <= 1) {
+        console.log('Cargando años académicos mediante API');
+        loadAcademicYears();
+    } else if (yearSelect) {
+        console.log('Años académicos ya cargados en el HTML');
+        // Recopilar información de años académicos para depuración
+        for (let i = 1; i < yearSelect.options.length; i++) {
+            const option = yearSelect.options[i];
+            debugInfo.academicYears.push({
+                id: option.value,
+                name: option.text,
+                active: option.selected
+            });
+        }
+        updateDebugInfo();
+        
+        // Si hay un año seleccionado, cargar sus períodos
+        if (yearSelect.value) {
+            loadPeriods();
+        }
+    }
+    
+    // Configurar eventos para los selectores
+    if (yearSelect) {
+        yearSelect.addEventListener('change', function() {
+            console.log(`Año académico seleccionado: ${this.value}`);
+            loadPeriods();
+        });
+    }
+    
+    if (periodSelect) {
+        periodSelect.addEventListener('change', function() {
+            console.log(`Período seleccionado: ${this.value}`);
+            if (document.getElementById('weight-info')) {
+                loadAvailableWeight();
+            }
+        });
+    }
+    
+    if (subjectSelect) {
+        subjectSelect.addEventListener('change', function() {
+            console.log(`Asignatura seleccionada: ${this.value}`);
+            loadGrades();
+            if (document.getElementById('weight-info')) {
+                loadAvailableWeight();
+            }
+        });
+    }
+    
+    if (gradeSelect) {
+        gradeSelect.addEventListener('change', function() {
+            console.log(`Grado seleccionado: ${this.value}`);
+            loadSections();
+        });
+    }
+    
+    if (sectionSelect) {
+        sectionSelect.addEventListener('change', function() {
+            console.log(`Sección seleccionada: ${this.value}`);
+            loadTeachers();
+            // Actualizar ponderación disponible si ya hay asignatura y período seleccionados
+            const subjectId = document.getElementById('subject_id')?.value;
+            const periodId = document.getElementById('period_id')?.value;
+            if (subjectId && periodId) {
+                loadAvailableWeight();
+            }
+        });
+    }
+    
+    if (teacherSelect) {
+        teacherSelect.addEventListener('change', function() {
+            console.log(`Profesor seleccionado: ${this.value}`);
+            // Actualizar ponderación disponible si ya hay asignatura y período seleccionados
+            const subjectId = document.getElementById('subject_id')?.value;
+            const periodId = document.getElementById('period_id')?.value;
+            if (subjectId && periodId) {
+                loadAvailableWeight();
+            }
+        });
+    }
+    
+    // Configurar el modal
+    const modal = document.getElementById('newEvaluationModal');
+    if (modal) {
+        modal.addEventListener('show.bs.modal', function () {
+            console.log('Modal abriéndose');
+            
+            // Verificar que los elementos existen
+            const yearSelect = document.getElementById('academic_year_id');
+            const periodSelect = document.getElementById('period_id');
+            const subjectSelect = document.getElementById('subject_id');
+            const gradeSelect = document.getElementById('grade_id');
+            const sectionSelect = document.getElementById('section_id');
+            const teacherSelect = document.getElementById('teacher_id');
+            const weightInfo = document.getElementById('weight-info');
+            
+            if (!yearSelect) logError('Elemento academic_year_id no encontrado en modal');
+            if (!periodSelect) logError('Elemento period_id no encontrado en modal');
+            if (!subjectSelect) logError('Elemento subject_id no encontrado en modal');
+            if (!gradeSelect) logError('Elemento grade_id no encontrado en modal');
+            if (!sectionSelect) logError('Elemento section_id no encontrado en modal');
+            if (!teacherSelect) logError('Elemento teacher_id no encontrado en modal');
+            if (!weightInfo) logError('Elemento weight-info no encontrado en modal');
+            
+            // Reiniciar campos
+            if (weightInfo) {
+                weightInfo.innerHTML = '<i class="fas fa-info-circle me-2"></i>Seleccione una asignatura y un período para ver la ponderación disponible.';
+            }
+            
+            // Si no hay años académicos cargados, cargarlos
+            if (yearSelect && yearSelect.options.length <= 1) {
+                loadAcademicYears();
+            }
+        });
+    }
+    
+    // Configurar validación del formulario
+    const form = document.getElementById('new-evaluation-form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const weightInput = document.getElementById('weight');
+            if (weightInput) {
+                const weight = parseFloat(weightInput.value);
+                const maxWeight = parseFloat(weightInput.max);
+                
+                if (weight > maxWeight) {
+                    e.preventDefault();
+                    alert(`El peso no puede ser mayor que ${maxWeight}%`);
+                }
+            }
+        });
+    }
+});
 </script>
 {% endblock %}
