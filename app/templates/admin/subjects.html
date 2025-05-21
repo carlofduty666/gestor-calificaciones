@@ -97,8 +97,12 @@
                                         </td>
                                         <td>
                                             <div class="d-flex flex-wrap gap-1">
-                                                {% for grade in subject.grades %}
-                                                    <span class="badge bg-secondary">{{ grade.name }} ({{ grade.level }})</span>
+                                                {% set assigned_grades = [] %}
+                                                {% for assignment in subject.teacher_assignments %}
+                                                    {% if assignment.section.grade.id not in assigned_grades %}
+                                                        {% set _ = assigned_grades.append(assignment.section.grade.id) %}
+                                                        <span class="badge bg-secondary">{{ assignment.section.grade.name }} ({{ assignment.section.grade.level }})</span>
+                                                    {% endif %}
                                                 {% else %}
                                                     <span class="text-muted">Sin grados asignados</span>
                                                 {% endfor %}
@@ -225,13 +229,19 @@
                             <div class="col-md-8">
                                 <div class="row">
                                     <div class="col-12">
-                                        <h5 class="mb-3">Grados Asignados</h5>
-                                        <div class="d-flex flex-wrap gap-2 mb-4">
-                                            {% for grade in subject.grades %}
-                                                <span class="badge bg-secondary p-2">{{ grade.name }} ({{ grade.level }})</span>
-                                            {% else %}
-                                                <span class="text-muted">Sin grados asignados</span>
-                                            {% endfor %}
+                                        <div class="mb-3">
+                                            <h6 class="fw-bold">Grados Asignados:</h6>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                {% set assigned_grades = [] %}
+                                                {% for assignment in subject.teacher_assignments %}
+                                                    {% if assignment.section.grade.id not in assigned_grades %}
+                                                        {% set _ = assigned_grades.append(assignment.section.grade.id) %}
+                                                        <span class="badge bg-secondary">{{ assignment.section.grade.name }} ({{ assignment.section.grade.level }})</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="text-muted">Sin grados asignados</span>
+                                                {% endfor %}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -294,16 +304,9 @@
                                 <input type="text" class="form-control" id="code{{ subject.id }}" name="code" value="{{ subject.code }}" required>
                                 <div class="form-text">Código único para identificar la asignatura.</div>
                             </div>
-                            <div class="mb-3">
-                                <label for="grades{{ subject.id }}" class="form-label">Grados</label>
-                                <select class="form-select" id="grades{{ subject.id }}" name="grades" multiple required>
-                                    {% for grade in grades %}
-                                        <option value="{{ grade.id }}" {% if grade in subject.grades %}selected{% endif %}>
-                                            {{ grade.name }} ({{ grade.level }})
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                                <div class="form-text">Mantenga presionada la tecla Ctrl para seleccionar múltiples grados.</div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Para gestionar en qué grados y secciones se imparte esta asignatura, utilice la sección de Asignaciones.
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -367,16 +370,9 @@
                                 <input type="text" class="form-control" id="code" name="code" placeholder="Ej: MAT101, CS202, etc." required>
                                 <div class="form-text">Código único para identificar la asignatura.</div>
                             </div>
-                            <div class="mb-3">
-                                <label for="grades" class="form-label">Grados</label>
-                                <select class="form-select" id="grades" name="grades" multiple required>
-                                    {% for grade in grades %}
-                                        <option value="{{ grade.id }}">
-                                            {{ grade.name }} ({{ grade.level }})
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                                <div class="form-text">Mantenga presionada la tecla Ctrl para seleccionar múltiples grados.</div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Después de crear la asignatura, podrá asignarla a profesores y secciones específicas en la sección de Asignaciones.
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -387,7 +383,7 @@
                 </div>
             </div>
         </div>
-    </div>
+
 </div>
 {% endblock %}
 
@@ -425,16 +421,7 @@
 {% block scripts %}
 {{ super() }}
 <script>
-    $(document).ready(function() {
-        // Inicializar select2 para mejorar la selección múltiple
-        if ($.fn.select2) {
-            $('.form-select[multiple]').select2({
-                placeholder: 'Seleccione los grados',
-                allowClear: true,
-                width: '100%'
-            });
-        }
-        
+    $(document).ready(function() {        
         // Filtro de búsqueda
         $('#search').on('keyup', function() {
             const value = $(this).val().toLowerCase();

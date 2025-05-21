@@ -505,46 +505,42 @@ def delete_section_ajax(id):
 @admin.route('/subjects')
 @login_required
 def subjects():
-    # Obtener todas las asignaturas
     subjects = Subject.query.all()
+    grades = Grade.query.all()
     
-    # Obtener todos los grados para los formularios de creación y edición
-    grades = Grade.query.order_by(Grade.level, Grade.name).all()
+    # Obtener las asignaciones para cada asignatura
+    for subject in subjects:
+        # Asegurarse de que las relaciones estén cargadas
+        subject.teacher_assignments.all()
     
     return render_template('admin/subjects.html', title='Asignaturas', subjects=subjects, grades=grades)
 
 @admin.route('/subjects/new', methods=['POST'])
 @login_required
 def new_subject():
-    # Obtener datos del formulario
-    name = request.form.get('name')
-    code = request.form.get('code')
-    grade_ids = request.form.getlist('grades')  # Nota: getlist para obtener múltiples valores
-    
-    # Validar datos
-    if not name or not code or not grade_ids:
-        flash('Todos los campos son obligatorios', 'danger')
+    if request.method == 'POST':
+        name = request.form.get('name')
+        code = request.form.get('code')
+        
+        # Validar que todos los campos estén presentes
+        if not all([name, code]):
+            flash('Todos los campos son requeridos', 'danger')
+            return redirect(url_for('admin.subjects'))
+            
+        # Verificar si ya existe una asignatura con el mismo código
+        existing = Subject.query.filter_by(code=code).first()
+        if existing:
+            flash(f'Ya existe una asignatura con el código {code}', 'danger')
+            return redirect(url_for('admin.subjects'))
+            
+        # Crear nueva asignatura
+        subject = Subject(name=name, code=code)
+        db.session.add(subject)
+        db.session.commit()
+        
+        flash('Asignatura creada correctamente', 'success')
         return redirect(url_for('admin.subjects'))
-    
-    # Verificar si ya existe una asignatura con el mismo código
-    if Subject.query.filter_by(code=code).first():
-        flash('Ya existe una asignatura con ese código', 'danger')
-        return redirect(url_for('admin.subjects'))
-    
-    # Crear la asignatura
-    subject = Subject(name=name, code=code)
-    
-    # Asociar los grados seleccionados
-    for grade_id in grade_ids:
-        grade = Grade.query.get(grade_id)
-        if grade:
-            subject.grades.append(grade)
-    
-    # Guardar en la base de datos
-    db.session.add(subject)
-    db.session.commit()
-    
-    flash('Asignatura creada correctamente', 'success')
+        
     return redirect(url_for('admin.subjects'))
 
 @admin.route('/subjects/<int:id>/edit', methods=['POST'])
@@ -552,37 +548,29 @@ def new_subject():
 def edit_subject(id):
     subject = Subject.query.get_or_404(id)
     
-    # Obtener datos del formulario
-    name = request.form.get('name')
-    code = request.form.get('code')
-    grade_ids = request.form.getlist('grades')  # Nota: getlist para obtener múltiples valores
-    
-    # Validar datos
-    if not name or not code or not grade_ids:
-        flash('Todos los campos son obligatorios', 'danger')
+    if request.method == 'POST':
+        name = request.form.get('name')
+        code = request.form.get('code')
+        
+        # Validar que todos los campos estén presentes
+        if not all([name, code]):
+            flash('Todos los campos son requeridos', 'danger')
+            return redirect(url_for('admin.subjects'))
+            
+        # Verificar si ya existe otra asignatura con el mismo código
+        existing = Subject.query.filter(Subject.id != id, Subject.code == code).first()
+        if existing:
+            flash(f'Ya existe otra asignatura con el código {code}', 'danger')
+            return redirect(url_for('admin.subjects'))
+            
+        # Actualizar asignatura
+        subject.name = name
+        subject.code = code
+        db.session.commit()
+        
+        flash('Asignatura actualizada correctamente', 'success')
         return redirect(url_for('admin.subjects'))
-    
-    # Verificar si ya existe otra asignatura con el mismo código
-    existing = Subject.query.filter_by(code=code).first()
-    if existing and existing.id != subject.id:
-        flash('Ya existe otra asignatura con ese código', 'danger')
-        return redirect(url_for('admin.subjects'))
-    
-    # Actualizar la asignatura
-    subject.name = name
-    subject.code = code
-    
-    # Actualizar los grados asociados
-    subject.grades = []  # Eliminar asociaciones existentes
-    for grade_id in grade_ids:
-        grade = Grade.query.get(grade_id)
-        if grade:
-            subject.grades.append(grade)
-    
-    # Guardar en la base de datos
-    db.session.commit()
-    
-    flash('Asignatura actualizada correctamente', 'success')
+        
     return redirect(url_for('admin.subjects'))
 
 @admin.route('/subjects/<int:id>/delete', methods=['POST'])
@@ -596,7 +584,7 @@ def delete_subject(id):
         return redirect(url_for('admin.subjects'))
     
     # Verificar si hay calificaciones asociadas a esta asignatura
-    if StudentGrade.query.join(TeacherAssignment).filter(TeacherAssignment.subject_id == id).first():
+    if StudentGrade.query.filter_by(subject_id=id).first():
         flash('No se puede eliminar esta asignatura porque tiene calificaciones asociadas', 'danger')
         return redirect(url_for('admin.subjects'))
     
