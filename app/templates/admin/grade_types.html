@@ -140,6 +140,12 @@
                                         </td>
                                         <td>
                                             <div class="btn-group" role="group">
+                                                <button type="button" class="btn btn-sm btn-outline-success" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#enterGradesModal{{ grade_type.id }}" 
+                                                        title="Calificar">
+                                                    <i class="fas fa-clipboard-check"></i>
+                                                </button>
                                                 <button type="button" class="btn btn-sm btn-outline-primary" 
                                                         data-bs-toggle="modal" 
                                                         data-bs-target="#editEvaluationModal{{ grade_type.id }}" 
@@ -234,120 +240,180 @@
             </div>
         </div>
     </div>
-{% endfor %}
 
-<!-- Modal para crear nueva evaluación -->
-<div class="modal fade" id="newEvaluationModal" tabindex="-1" aria-labelledby="newEvaluationModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="newEvaluationModalLabel">Nueva Evaluación</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form method="POST" action="{{ url_for('admin.new_evaluation') }}" id="new-evaluation-form">
-                <div class="modal-body">
-                    <!-- Depuración: Mostrar información sobre años académicos -->
-                    <div id="debug-info" style="display: none;" class="alert alert-warning mb-3">
-                        <strong>Depuración:</strong>
-                        <div id="debug-academic-years">Cargando información de depuración...</div>
-                    </div>
-                    
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="subject_id" class="form-label">Asignatura</label>
-                            <select class="form-select" id="subject_id" name="subject_id" required onchange="loadGrades(); loadAvailableWeight();">
-                                <option value="">Seleccione una asignatura</option>
-                                {% for subject in subjects %}
-                                    <option value="{{ subject.id }}">{{ subject.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="academic_year_id" class="form-label">Año Académico</label>
-                            <select class="form-select" id="academic_year_id" name="academic_year_id" required onchange="loadPeriods()">
-                                <option value="">Seleccione un año académico</option>
-                                <!-- Depuración: Mostrar información sobre la variable academic_years -->
-                                {% if academic_years %}
-                                    <!-- Hay {{ academic_years|length }} años académicos disponibles -->
-                                    {% for year in academic_years %}
-                                        <option value="{{ year.id }}" {% if year.is_active %}selected{% endif %}>
-                                            {{ year.name }} {% if year.is_active %}(Activo){% endif %}
-                                        </option>
-                                    {% endfor %}
-                                {% else %}
-                                    <!-- No hay años académicos disponibles -->
-                                {% endif %}
-                            </select>
-                        </div>
-                    </div>
-                   
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="period_id" class="form-label">Período</label>
-                            <select class="form-select" id="period_id" name="period_id" required onchange="loadAvailableWeight()">
-                                <option value="">Seleccione primero un año académico</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="grade_id" class="form-label">Grado</label>
-                            <select class="form-select" id="grade_id" name="grade_id" required onchange="loadSections()">
-                                <option value="">Seleccione primero una asignatura</option>
-                            </select>
-                        </div>
-                    </div>
 
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="section_id" class="form-label">Sección</label>
-                            <select class="form-select" id="section_id" name="section_id" required onchange="loadTeachers()">
-                                <option value="">Seleccione primero un grado</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="teacher_id" class="form-label">Profesor</label>
-                            <select class="form-select" id="teacher_id" name="teacher_id" required>
-                                <option value="">Seleccione primero una sección</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="name" class="form-label">Nombre de la Evaluación</label>
-                            <input type="text" class="form-control" id="name" name="name" required placeholder="Ej: Examen Parcial, Tarea, Proyecto...">
-                        </div>
-                        <div class="col-md-6">
-                            <label for="weight" class="form-label">Ponderación (%)</label>
-                            <div class="input-group">
-                                <input type="number" class="form-control" id="weight" name="weight" min="0.1" max="100" step="0.1" required placeholder="Ej: 20">
-                                <span class="input-group-text">%</span>
-                            </div>
-                            <div class="form-text">
-                                Porcentaje que representa esta evaluación en la nota final del período.
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="card">
-                                <div class="card-body p-3" id="weight-info">
+    <!-- Modal para introducir calificaciones -->
+    <div class="modal fade" id="enterGradesModal{{ grade_type.id }}" tabindex="-1" aria-labelledby="enterGradesModalLabel{{ grade_type.id }}" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="enterGradesModalLabel{{ grade_type.id }}">
+                        Calificaciones - {{ grade_type.name }} - {{ grade_type.subject.name }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ url_for('admin.enter_grades', grade_type_id=grade_type.id) }}">
+                    <div class="modal-body">
+                        {% if grade_type.section %}
+                            {% set students = grade_type.section.students.filter_by(is_active=True).order_by(Student.last_name).all() %}
+                            
+                            {% if students %}
+                                <div class="alert alert-info mb-3">
                                     <i class="fas fa-info-circle me-2"></i>
-                                    Seleccione una asignatura y un período para ver la ponderación disponible.
+                                    Introduzca las calificaciones para <strong>{{ grade_type.name }}</strong> de la asignatura <strong>{{ grade_type.subject.name }}</strong>
+                                    en la sección <strong>{{ grade_type.section.grade.name }} "{{ grade_type.section.name }}"</strong>.
+                                    <br>
+                                    <small>Las calificaciones deben estar entre 01 y 20. Use "NP" para indicar que el estudiante no presentó (equivale a 0).</small>
+                                </div>
+                                
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Estudiante</th>
+                                                <th>ID</th>
+                                                <th>Calificación</th>
+                                                <th>Comentarios</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for student in students %}
+                                                {% set existing_grade = student.student_grades.filter_by(grade_type_id=grade_type.id).first() %}
+                                                <tr>
+                                                    <td>{{ loop.index }}</td>
+                                                    <td>{{ student.last_name }}, {{ student.first_name }}</td>
+                                                    <td>{{ student.student_id }}</td>
+                                                    <td width="150">
+                                                        <div class="input-group">
+                                                            <input type="text" 
+                                                                class="form-control grade-input" 
+                                                                name="grade_{{ student.id }}" 
+                                                                value="{% if existing_grade %}{% if existing_grade.value == 0 %}NP{% else %}{{ '%02d'|format(existing_grade.value|int) }}{% endif %}{% endif %}"
+                                                                placeholder="01-20 / NP"
+                                                                pattern="^(NP|0[1-9]|1[0-9]|20)$"
+                                                                title="Ingrese un valor entre 01 y 20, o NP para No Presentó">
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <input type="text" 
+                                                            class="form-control" 
+                                                            name="comment_{{ student.id }}" 
+                                                            value="{% if existing_grade %}{{ existing_grade.comments }}{% endif %}"
+                                                            placeholder="Opcional">
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    No hay estudiantes registrados en esta sección.
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Esta evaluación no tiene una sección asignada. Por favor, asigne una sección a esta evaluación primero.
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        {% if grade_type.section and students %}
+                            <button type="submit" class="btn btn-primary">Guardar Calificaciones</button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Modal para crear nueva evaluación -->
+    <div class="modal fade" id="newEvaluationModal" tabindex="-1" aria-labelledby="newEvaluationModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="newEvaluationModalLabel">Nueva Evaluación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ url_for('admin.new_evaluation') }}">
+                    <div class="modal-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="name" class="form-label">Nombre de la Evaluación</label>
+                                <input type="text" class="form-control" id="name" name="name" placeholder="Ej: Examen Parcial, Tarea 1, etc." required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="weight" class="form-label">Ponderación (%)</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="weight" name="weight" min="0.1" max="100" step="0.1" placeholder="Ej: 25" required>
+                                    <span class="input-group-text">%</span>
                                 </div>
                             </div>
                         </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="subject_id" class="form-label">Asignatura</label>
+                                <select class="form-select" id="subject_id" name="subject_id" required>
+                                    <option value="" selected disabled>Seleccione una asignatura</option>
+                                    {% for subject in subjects %}
+                                        <option value="{{ subject.id }}">{{ subject.name }} ({{ subject.code }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="period_id" class="form-label">Período</label>
+                                <select class="form-select" id="period_id" name="period_id" required>
+                                    <option value="" selected disabled>Seleccione un período</option>
+                                    {% for year in academic_years %}
+                                        <optgroup label="{{ year.name }}">
+                                            {% for period in year.periods %}
+                                                <option value="{{ period.id }}">{{ period.name }}</option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="section_id" class="form-label">Sección</label>
+                                <select class="form-select" id="section_id" name="section_id" required>
+                                    <option value="" selected disabled>Seleccione una sección</option>
+                                    {% for grade in grades %}
+                                        <optgroup label="{{ grade.name }} ({{ grade.level }})">
+                                            {% for section in grade.sections %}
+                                                <option value="{{ section.id }}">{{ section.name }}</option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="teacher_id" class="form-label">Profesor</label>
+                                <select class="form-select" id="teacher_id" name="teacher_id" required>
+                                    <option value="" selected disabled>Seleccione un profesor</option>
+                                    {% for teacher in teachers %}
+                                        <option value="{{ teacher.id }}">{{ teacher.user.last_name }}, {{ teacher.user.first_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" id="save-evaluation-btn">Guardar</button>
-                </div>
-            </form>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Crear Evaluación</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
-</div>
 {% endblock %}
+
 
 {% block scripts %}
 {{ super() }}
@@ -361,6 +427,44 @@ let debugInfo = {
     teachers: [],
     errors: []
 };
+
+    $(document).ready(function() {
+        // Inicializar select2 para mejorar la selección
+        if ($.fn.select2) {
+            $('.form-select').select2({
+                theme: 'bootstrap-5',
+                width: '100%'
+            });
+        }
+        
+        // Validación de calificaciones
+        $('.grade-input').on('input', function() {
+            let value = $(this).val().toUpperCase();
+            
+            // Permitir "NP" o valores numéricos entre 01 y 20
+            if (value === 'NP') {
+                $(this).val('NP');
+            } else {
+                // Eliminar caracteres no numéricos
+                value = value.replace(/[^0-9]/g, '');
+                
+                // Asegurar que esté en el rango 01-20
+                if (value !== '') {
+                    let numValue = parseInt(value);
+                    if (numValue < 1) numValue = 1;
+                    if (numValue > 20) numValue = 20;
+                    
+                    // Formatear con ceros a la izquierda
+                    $(this).val(('0' + numValue).slice(-2));
+                } else {
+                    $(this).val('');
+                }
+            }
+        });
+        
+        // Filtrado dinámico de secciones y profesores basado en la asignatura seleccionada
+        $('#subject_id').change(function() {
+            const subjectId = $(this).val();
 
 // Función para actualizar la información de depuración
 function updateDebugInfo() {

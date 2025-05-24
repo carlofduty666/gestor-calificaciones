@@ -1,20 +1,1012 @@
-<div class="grade-type-field mb-3" id="{{ field_id }}">
-    <div class="row">
-        <div class="col-md-5">
-            <input type="text" class="form-control" name="new_grade_type_name[]" placeholder="Nombre" value="{{ suggested_name }}" required>
-        </div>
-        <div class="col-md-5">
-            <div class="input-group">
-                <input type="number" class="form-control weight-input" name="new_grade_type_weight[]" 
-                       min="0.1" max="100" step="0.1" value="{{ suggested_weight }}" 
-                       placeholder="Ponderación" required>
-                <span class="input-group-text">%</span>
+{% extends "base.html" %}
+
+{% block title %}Gestión de Evaluaciones{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-4 align-items-center">
+            <div class="col-sm-6">
+                <h1 class="m-0 text-gradient">
+                    <i class="fas fa-tasks me-2"></i>Gestión de Evaluaciones
+                </h1>
             </div>
-        </div>
-        <div class="col-md-2">
-            <button type="button" class="btn btn-danger remove-field" onclick="removeField('{{ field_id }}')">
-                <i class="fas fa-times"></i>
-            </button>
+            <div class="col-sm-6">
+                <div class="float-sm-end">
+                    <button type="button" class="btn btn-primary btn-dashboard" data-bs-toggle="modal" data-bs-target="#newEvaluationModal">
+                        <i class="fas fa-plus-circle me-2"></i>Nueva Evaluación
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<div class="content">
+    <div class="container-fluid">
+        <!-- Mensaje informativo permanente -->
+        <div class="permanent-alert permanent-alert-info mb-4">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Información:</strong> En esta sección puede gestionar los tipos de evaluación para cada asignatura y período.
+            Las evaluaciones definen cómo se calculará la nota final de los estudiantes.
+        </div>
+
+        <!-- Filtros -->
+        <div class="card dashboard-card mb-4">
+            <div class="card-body">
+                <h5 class="card-title mb-3">
+                    <i class="fas fa-filter me-2"></i>Filtros
+                </h5>
+                <form method="GET" action="{{ url_for('admin.evaluations') }}" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="subject_filter" class="form-label">Asignatura</label>
+                        <select name="subject_id" id="subject_filter" class="form-select">
+                            <option value="">Todas</option>
+                            {% for subject in subjects %}
+                                <option value="{{ subject.id }}" {% if request.args.get('subject_id')|int == subject.id %}selected{% endif %}>
+                                    {{ subject.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="period_filter" class="form-label">Período</label>
+                        <select name="period_id" id="period_filter" class="form-select">
+                            <option value="">Todos</option>
+                            {% for year in academic_years %}
+                                <optgroup label="{{ year.name }}">
+                                    {% for period in year.periods %}
+                                        <option value="{{ period.id }}" {% if request.args.get('period_id')|int == period.id %}selected{% endif %}>
+                                            {{ period.name }}
+                                        </option>
+                                    {% endfor %}
+                                </optgroup>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <div class="d-grid gap-2 d-md-flex w-100 justify-content-md-end">
+                            <a href="{{ url_for('admin.evaluations') }}" class="btn btn-outline-secondary me-md-2">
+                                <i class="fas fa-undo me-1"></i>Limpiar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tabla de evaluaciones -->
+        <div class="card dashboard-card">
+            <div class="card-body">
+                <h5 class="card-title mb-3">
+                    <i class="fas fa-list me-2"></i>Evaluaciones Registradas
+                </h5>
+                
+                {% if grade_types %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Asignatura</th>
+                                    <th>Grado/Sección</th>
+                                    <th>Profesor</th>
+                                    <th>Período</th>
+                                    <th>Ponderación</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for grade_type in grade_types %}
+                                    <tr class="animate-fade-in delay-{{ loop.index }}">
+                                        <td>
+                                            <div class="fw-semibold">{{ grade_type.name }}</div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-primary">{{ grade_type.subject.name }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">
+                                                {% if grade_type.section %}
+                                                    {{ grade_type.section.grade.name }} "{{ grade_type.section.name }}"
+                                                {% else %}
+                                                    Sin sección asignada
+                                                {% endif %}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info text-dark">
+                                                {% if grade_type.teacher and grade_type.teacher.user %}
+                                                    {{ grade_type.teacher.user.get_full_name() }}
+                                                {% else %}
+                                                    Sin profesor asignado
+                                                {% endif %}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div>{{ grade_type.period.name }}</div>
+                                            <small class="text-muted">{{ grade_type.period.academic_year.name }}</small>
+                                        </td>
+                                        <td>
+                                            <div class="progress" style="height: 20px;">
+                                                <div class="progress-bar" role="progressbar" style="width: {{ grade_type.weight }}%;" 
+                                                    aria-valuenow="{{ grade_type.weight }}" aria-valuemin="0" aria-valuemax="100">
+                                                    {{ grade_type.weight }}%
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#editEvaluationModal{{ grade_type.id }}" 
+                                                        title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#deleteEvaluationModal{{ grade_type.id }}" 
+                                                        title="Eliminar">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="permanent-alert permanent-alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No hay evaluaciones registradas con los filtros seleccionados.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modales para editar y eliminar evaluaciones -->
+{% for grade_type in grade_types %}
+    <!-- Modal para editar evaluación -->
+    <div class="modal fade" id="editEvaluationModal{{ grade_type.id }}" tabindex="-1" aria-labelledby="editEvaluationModalLabel{{ grade_type.id }}" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editEvaluationModalLabel{{ grade_type.id }}">Editar Evaluación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ url_for('admin.edit_evaluation', id=grade_type.id) }}">
+                    <div class="modal-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="name{{ grade_type.id }}" class="form-label">Nombre de la Evaluación</label>
+                                <input type="text" class="form-control" id="name{{ grade_type.id }}" name="name" value="{{ grade_type.name }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="weight{{ grade_type.id }}" class="form-label">Ponderación (%)</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="weight{{ grade_type.id }}" name="weight" min="0.1" max="100" step="0.1" value="{{ grade_type.weight }}" required>
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            No se pueden modificar la asignatura, el grado, la sección, el profesor ni el período de una evaluación existente.
+                            Si necesita cambiar estos datos, elimine esta evaluación y cree una nueva.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para eliminar evaluación -->
+    <div class="modal fade" id="deleteEvaluationModal{{ grade_type.id }}" tabindex="-1" aria-labelledby="deleteEvaluationModalLabel{{ grade_type.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteEvaluationModalLabel{{ grade_type.id }}">Eliminar Evaluación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Está seguro de que desea eliminar la evaluación <strong>{{ grade_type.name }}</strong> de la asignatura <strong>{{ grade_type.subject.name }}</strong>?</p>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Esta acción no se puede deshacer y eliminará todas las calificaciones asociadas a esta evaluación.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <form action="{{ url_for('admin.delete_evaluation', id=grade_type.id) }}" method="POST">
+                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+
+<!-- Modal para crear nueva evaluación -->
+<div class="modal fade" id="newEvaluationModal" tabindex="-1" aria-labelledby="newEvaluationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newEvaluationModalLabel">Nueva Evaluación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.new_evaluation') }}" id="new-evaluation-form">
+                <div class="modal-body">
+                    <!-- Depuración: Mostrar información sobre años académicos -->
+                    <div id="debug-info" style="display: none;" class="alert alert-warning mb-3">
+                        <strong>Depuración:</strong>
+                        <div id="debug-academic-years">Cargando información de depuración...</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="subject_id" class="form-label">Asignatura</label>
+                            <select class="form-select" id="subject_id" name="subject_id" required onchange="loadGrades(); loadAvailableWeight();">
+                                <option value="">Seleccione una asignatura</option>
+                                {% for subject in subjects %}
+                                    <option value="{{ subject.id }}">{{ subject.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="academic_year_id" class="form-label">Año Académico</label>
+                            <select class="form-select" id="academic_year_id" name="academic_year_id" required onchange="loadPeriods()">
+                                <option value="">Seleccione un año académico</option>
+                                <!-- Depuración: Mostrar información sobre la variable academic_years -->
+                                {% if academic_years %}
+                                    <!-- Hay {{ academic_years|length }} años académicos disponibles -->
+                                    {% for year in academic_years %}
+                                        <option value="{{ year.id }}" {% if year.is_active %}selected{% endif %}>
+                                            {{ year.name }} {% if year.is_active %}(Activo){% endif %}
+                                        </option>
+                                    {% endfor %}
+                                {% else %}
+                                    <!-- No hay años académicos disponibles -->
+                                {% endif %}
+                            </select>
+                        </div>
+                    </div>
+                   
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="period_id" class="form-label">Período</label>
+                            <select class="form-select" id="period_id" name="period_id" required onchange="loadAvailableWeight()">
+                                <option value="">Seleccione primero un año académico</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="grade_id" class="form-label">Grado</label>
+                            <select class="form-select" id="grade_id" name="grade_id" required onchange="loadSections()">
+                                <option value="">Seleccione primero una asignatura</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="section_id" class="form-label">Sección</label>
+                            <select class="form-select" id="section_id" name="section_id" required onchange="loadTeachers()">
+                                <option value="">Seleccione primero un grado</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="teacher_id" class="form-label">Profesor</label>
+                            <select class="form-select" id="teacher_id" name="teacher_id" required>
+                                <option value="">Seleccione primero una sección</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="name" class="form-label">Nombre de la Evaluación</label>
+                            <input type="text" class="form-control" id="name" name="name" required placeholder="Ej: Examen Parcial, Tarea, Proyecto...">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="weight" class="form-label">Ponderación (%)</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="weight" name="weight" min="0.1" max="100" step="0.1" required placeholder="Ej: 20">
+                                <span class="input-group-text">%</span>
+                            </div>
+                            <div class="form-text">
+                                Porcentaje que representa esta evaluación en la nota final del período.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-body p-3" id="weight-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Seleccione una asignatura y un período para ver la ponderación disponible.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="save-evaluation-btn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+// Variable global para depuración
+let debugInfo = {
+    academicYears: [],
+    periods: [],
+    grades: [],
+    sections: [],
+    teachers: [],
+    errors: []
+};
+
+// Función para actualizar la información de depuración
+function updateDebugInfo() {
+    const debugElement = document.getElementById('debug-academic-years');
+    if (debugElement) {
+        let html = '<ul>';
+        
+        // Información sobre años académicos
+        html += '<li><strong>Años académicos:</strong> ';
+        if (debugInfo.academicYears.length > 0) {
+            html += '<ul>';
+            debugInfo.academicYears.forEach(year => {
+                html += `<li>${year.name} (ID: ${year.id}, Activo: ${year.active})</li>`;
+            });
+            html += '</ul>';
+        } else {
+            html += 'No hay datos';
+        }
+        html += '</li>';
+        
+        // Información sobre períodos
+        html += '<li><strong>Períodos:</strong> ';
+        if (debugInfo.periods.length > 0) {
+            html += '<ul>';
+            debugInfo.periods.forEach(period => {
+                html += `<li>${period.name} (ID: ${period.id}, Año: ${period.yearId})</li>`;
+            });
+            html += '</ul>';
+        } else {
+            html += 'No hay datos';
+        }
+        html += '</li>';
+        
+        // Información sobre grados
+        html += '<li><strong>Grados:</strong> ';
+        if (debugInfo.grades.length > 0) {
+            html += '<ul>';
+            debugInfo.grades.forEach(grade => {
+                html += `<li>${grade.name} (ID: ${grade.id})</li>`;
+            });
+            html += '</ul>';
+        } else {
+            html += 'No hay datos';
+        }
+        html += '</li>';
+        
+        // Información sobre secciones
+        html += '<li><strong>Secciones:</strong> ';
+        if (debugInfo.sections.length > 0) {
+            html += '<ul>';
+            debugInfo.sections.forEach(section => {
+                html += `<li>${section.name} (ID: ${section.id}, Grado: ${section.gradeId})</li>`;
+            });
+            html += '</ul>';
+        } else {
+            html += 'No hay datos';
+        }
+        html += '</li>';
+        
+        // Información sobre profesores
+        html += '<li><strong>Profesores:</strong> ';
+        if (debugInfo.teachers.length > 0) {
+            html += '<ul>';
+            debugInfo.teachers.forEach(teacher => {
+                html += `<li>${teacher.name} (ID: ${teacher.id})</li>`;
+            });
+            html += '</ul>';
+        } else {
+            html += 'No hay datos';
+        }
+        html += '</li>';
+        
+        // Errores registrados
+        html += '<li><strong>Errores:</strong> ';
+        if (debugInfo.errors.length > 0) {
+            html += '<ul>';
+            debugInfo.errors.forEach(error => {
+                html += `<li>${error}</li>`;
+            });
+            html += '</ul>';
+        } else {
+            html += 'No hay errores';
+        }
+        html += '</li>';
+        
+        html += '</ul>';
+        debugElement.innerHTML = html;
+    }
+}
+
+// Función para registrar errores
+function logError(message) {
+    console.error(message);
+    debugInfo.errors.push(`${new Date().toLocaleTimeString()}: ${message}`);
+    updateDebugInfo();
+}
+
+// Función para cargar los años académicos
+function loadAcademicYears() {
+    const yearSelect = document.getElementById('academic_year_id');
+    
+    if (!yearSelect) {
+        logError('Elemento academic_year_id no encontrado');
+        return;
+    }
+    
+    yearSelect.innerHTML = '<option value="">Cargando años académicos...</option>';
+    yearSelect.disabled = true;
+    
+    fetch('/admin/api/academic-years')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            debugInfo.academicYears = data.academic_years;
+            updateDebugInfo();
+            
+            yearSelect.innerHTML = '<option value="">Seleccione un año académico</option>';
+            
+            data.academic_years.forEach(year => {
+                const option = document.createElement('option');
+                option.value = year.id;
+                option.textContent = year.name + (year.is_active ? ' (Activo)' : '');
+                option.selected = year.is_active;
+                yearSelect.appendChild(option);
+            });
+            
+            yearSelect.disabled = false;
+            
+            // Si hay un año seleccionado (activo), cargar sus períodos
+            if (yearSelect.value) {
+                loadPeriods();
+            }
+        })
+        .catch(error => {
+            logError(`Error al cargar años académicos: ${error.message}`);
+            yearSelect.innerHTML = '<option value="">Error al cargar años académicos</option>';
+            yearSelect.disabled = true;
+        });
+}
+
+// Función para cargar los períodos de un año académico
+function loadPeriods() {
+    const yearId = document.getElementById('academic_year_id')?.value;
+    const periodSelect = document.getElementById('period_id');
+    
+    if (!periodSelect) {
+        logError('Elemento period_id no encontrado');
+        return;
+    }
+    
+    if (!yearId) {
+        periodSelect.innerHTML = '<option value="">Seleccione primero un año académico</option>';
+        periodSelect.disabled = true;
+        return;
+    }
+    
+    periodSelect.innerHTML = '<option value="">Cargando períodos...</option>';
+    periodSelect.disabled = true;
+    
+    fetch(`/admin/api/academic-year/${yearId}/periods`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            debugInfo.periods = data.periods;
+            updateDebugInfo();
+            
+            periodSelect.innerHTML = '<option value="">Seleccione un período</option>';
+            
+            data.periods.forEach(period => {
+                const option = document.createElement('option');
+                option.value = period.id;
+                option.textContent = period.name;
+                periodSelect.appendChild(option);
+            });
+            
+            periodSelect.disabled = false;
+            
+            // Si se seleccionó una asignatura y un período, cargar la ponderación disponible
+            const subjectId = document.getElementById('subject_id')?.value;
+            if (subjectId && periodSelect.value) {
+                loadAvailableWeight();
+            }
+        })
+        .catch(error => {
+            logError(`Error al cargar períodos: ${error.message}`);
+            periodSelect.innerHTML = '<option value="">Error al cargar períodos</option>';
+            periodSelect.disabled = true;
+        });
+}
+
+// Función para cargar los grados asociados a una asignatura
+function loadGrades() {
+    const subjectId = document.getElementById('subject_id')?.value;
+    const gradeSelect = document.getElementById('grade_id');
+    
+    if (!gradeSelect) {
+        logError('Elemento grade_id no encontrado');
+        return;
+    }
+    
+    if (!subjectId) {
+        gradeSelect.innerHTML = '<option value="">Seleccione primero una asignatura</option>';
+        gradeSelect.disabled = true;
+        return;
+    }
+    
+    gradeSelect.innerHTML = '<option value="">Cargando grados...</option>';
+    gradeSelect.disabled = true;
+    
+    fetch(`/admin/api/subject/${subjectId}/grades`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            debugInfo.grades = data.grades;
+            updateDebugInfo();
+            
+            gradeSelect.innerHTML = '<option value="">Seleccione un grado</option>';
+            
+            data.grades.forEach(grade => {
+                const option = document.createElement('option');
+                option.value = grade.id;
+                option.textContent = grade.name;
+                gradeSelect.appendChild(option);
+            });
+            
+            gradeSelect.disabled = false;
+        })
+        .catch(error => {
+            logError(`Error al cargar grados: ${error.message}`);
+            gradeSelect.innerHTML = '<option value="">Error al cargar grados</option>';
+            gradeSelect.disabled = true;
+        });
+}
+
+// Función para cargar las secciones de un grado
+function loadSections() {
+    const gradeId = document.getElementById('grade_id')?.value;
+    const sectionSelect = document.getElementById('section_id');
+    
+    if (!sectionSelect) {
+        logError('Elemento section_id no encontrado');
+        return;
+    }
+    
+    if (!gradeId) {
+        sectionSelect.innerHTML = '<option value="">Seleccione primero un grado</option>';
+        sectionSelect.disabled = true;
+        return;
+    }
+    
+    sectionSelect.innerHTML = '<option value="">Cargando secciones...</option>';
+    sectionSelect.disabled = true;
+    
+    fetch(`/admin/api/grade/${gradeId}/sections`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            debugInfo.sections = data.sections;
+            updateDebugInfo();
+            
+            sectionSelect.innerHTML = '<option value="">Seleccione una sección</option>';
+            
+            data.sections.forEach(section => {
+                const option = document.createElement('option');
+                option.value = section.id;
+                option.textContent = section.name;
+                sectionSelect.appendChild(option);
+            });
+            
+            sectionSelect.disabled = false;
+        })
+        .catch(error => {
+            logError(`Error al cargar secciones: ${error.message}`);
+            sectionSelect.innerHTML = '<option value="">Error al cargar secciones</option>';
+            sectionSelect.disabled = true;
+        });
+}
+
+// Función para cargar los profesores asociados a una asignatura y sección
+function loadTeachers() {
+    const subjectId = document.getElementById('subject_id')?.value;
+    const sectionId = document.getElementById('section_id')?.value;
+    const yearId = document.getElementById('academic_year_id')?.value;
+    const teacherSelect = document.getElementById('teacher_id');
+    
+    if (!teacherSelect) {
+        logError('Elemento teacher_id no encontrado');
+        return;
+    }
+    
+    if (!subjectId || !sectionId || !yearId) {
+        teacherSelect.innerHTML = '<option value="">Seleccione primero asignatura, grado y sección</option>';
+        teacherSelect.disabled = true;
+        return;
+    }
+    
+    teacherSelect.innerHTML = '<option value="">Cargando profesores...</option>';
+    teacherSelect.disabled = true;
+    
+    fetch(`/admin/api/assignments?subject_id=${subjectId}&section_id=${sectionId}&academic_year_id=${yearId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            debugInfo.teachers = data.teachers;
+            updateDebugInfo();
+            
+            teacherSelect.innerHTML = '<option value="">Seleccione un profesor</option>';
+            
+            if (data.teachers.length === 0) {
+                const option = document.createElement('option');
+                option.value = "";
+                option.textContent = "No hay profesores asignados a esta combinación";
+                option.disabled = true;
+                teacherSelect.appendChild(option);
+            } else {
+                data.teachers.forEach(teacher => {
+                    const option = document.createElement('option');
+                    option.value = teacher.id;
+                    option.textContent = teacher.name;
+                    teacherSelect.appendChild(option);
+                });
+            }
+            
+            teacherSelect.disabled = false;
+            
+            // Si se ha seleccionado un profesor, actualizar la ponderación disponible
+            if (teacherSelect.value) {
+                loadAvailableWeight();
+            }
+        })
+        .catch(error => {
+            logError(`Error al cargar profesores: ${error.message}`);
+            teacherSelect.innerHTML = '<option value="">Error al cargar profesores</option>';
+            teacherSelect.disabled = true;
+        });
+}
+
+// Función para cargar la ponderación disponible
+function loadAvailableWeight() {
+    const subjectId = document.getElementById('subject_id')?.value;
+    const periodId = document.getElementById('period_id')?.value;
+    const sectionId = document.getElementById('section_id')?.value;
+    const teacherId = document.getElementById('teacher_id')?.value;
+    const weightInfo = document.getElementById('weight-info');
+    
+    if (!weightInfo) {
+        logError('Elemento weight-info no encontrado');
+        return;
+    }
+    
+    if (!subjectId || !periodId) {
+        weightInfo.innerHTML = '<i class="fas fa-info-circle me-2"></i>Seleccione una asignatura y un período para ver la ponderación disponible.';
+        return;
+    }
+    
+    weightInfo.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Calculando ponderación disponible...';
+    
+    // Construir la URL base
+    let url = `/admin/api/subject/${subjectId}/period/${periodId}/available-weight`;
+    
+    // Añadir parámetros adicionales si están disponibles
+    const params = new URLSearchParams();
+    if (sectionId) params.append('section_id', sectionId);
+    if (teacherId) params.append('teacher_id', teacherId);
+    
+    // Añadir los parámetros a la URL si hay alguno
+    if (params.toString()) {
+        url += `?${params.toString()}`;
+    }
+    
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            const availableWeight = data.available_weight.toFixed(1);
+            const totalWeight = data.total_weight.toFixed(1);
+            
+            // Preparar información sobre el filtro aplicado
+            let filterInfo = '';
+            if (data.filter_applied) {
+                const filter = data.filter_applied;
+                filterInfo = `<div class="mt-2 small text-muted">`;
+                
+                if (filter.section_id && filter.teacher_id) {
+                    filterInfo += `Mostrando ponderación específica para la sección y profesor seleccionados.`;
+                } else if (filter.section_id) {
+                    filterInfo += `Mostrando ponderación para la sección seleccionada (todos los profesores).`;
+                } else if (filter.teacher_id) {
+                    filterInfo += `Mostrando ponderación para el profesor seleccionado (todas las secciones).`;
+                } else {
+                    filterInfo += `Mostrando ponderación general para la asignatura y período.`;
+                }
+                
+                filterInfo += `</div>`;
+            }
+            
+            if (availableWeight <= 0) {
+                weightInfo.innerHTML = `
+                    <i class="fas fa-exclamation-circle me-2 text-danger"></i>
+                    <strong class="text-danger">No hay ponderación disponible.</strong>
+                    Ya se ha asignado el 100% (${totalWeight}%) de la ponderación para esta asignatura en este período.
+                    ${filterInfo}
+                `;
+                const saveBtn = document.getElementById('save-evaluation-btn');
+                if (saveBtn) saveBtn.disabled = true;
+            } else {
+                weightInfo.innerHTML = `
+                    <i class="fas fa-check-circle me-2 text-success"></i>
+                    <strong>Ponderación disponible: ${availableWeight}%</strong>
+                    (Asignado: ${totalWeight}%)
+                    ${filterInfo}
+                `;
+                
+                // Si hay evaluaciones existentes, mostrarlas
+                if (data.evaluations && data.evaluations.length > 0) {
+                    let evaluationsHtml = `
+                        <div class="mt-3">
+                            <strong>Evaluaciones existentes:</strong>
+                            <ul class="list-group list-group-flush mt-2">
+                    `;
+                    
+                    data.evaluations.forEach(eval => {
+                        evaluationsHtml += `
+                            <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                                ${eval.name}
+                                <span class="badge bg-primary rounded-pill">${eval.weight}%</span>
+                            </li>
+                        `;
+                    });
+                    
+                    evaluationsHtml += `</ul></div>`;
+                    weightInfo.innerHTML += evaluationsHtml;
+                }
+                
+                const saveBtn = document.getElementById('save-evaluation-btn');
+                if (saveBtn) saveBtn.disabled = false;
+                
+                // Establecer el máximo para el campo de ponderación
+                const weightInput = document.getElementById('weight');
+                if (weightInput) {
+                    weightInput.max = availableWeight;
+                    
+                    // Si el valor actual es mayor que el disponible, ajustarlo
+                    if (parseFloat(weightInput.value) > availableWeight) {
+                        weightInput.value = availableWeight;
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            logError(`Error al cargar ponderación disponible: ${error.message}`);
+            if (weightInfo) {
+                weightInfo.innerHTML = '<i class="fas fa-exclamation-circle me-2 text-warning"></i>Error al calcular la ponderación disponible.';
+            }
+        });
+}
+
+// Configurar eventos cuando se carga el documento
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM cargado, inicializando componente de evaluaciones');
+    
+    // Mostrar panel de depuración con tecla especial (Ctrl+Shift+D)
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+            const debugPanel = document.getElementById('debug-info');
+            if (debugPanel) {
+                debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+    });
+    
+    // Verificar si los elementos necesarios existen
+    const yearSelect = document.getElementById('academic_year_id');
+    const periodSelect = document.getElementById('period_id');
+    const subjectSelect = document.getElementById('subject_id');
+    const gradeSelect = document.getElementById('grade_id');
+    const sectionSelect = document.getElementById('section_id');
+    const teacherSelect = document.getElementById('teacher_id');
+    const weightInfo = document.getElementById('weight-info');
+    
+    if (!yearSelect) logError('Elemento academic_year_id no encontrado');
+    if (!periodSelect) logError('Elemento period_id no encontrado');
+    if (!subjectSelect) logError('Elemento subject_id no encontrado');
+    if (!gradeSelect) logError('Elemento grade_id no encontrado');
+    if (!sectionSelect) logError('Elemento section_id no encontrado');
+    if (!teacherSelect) logError('Elemento teacher_id no encontrado');
+    if (!weightInfo) logError('Elemento weight-info no encontrado');
+    
+    // Inicializar años académicos
+    // Verificar si hay años académicos ya cargados en el select
+    if (yearSelect && yearSelect.options.length <= 1) {
+        console.log('Cargando años académicos mediante API');
+        loadAcademicYears();
+    } else if (yearSelect) {
+        console.log('Años académicos ya cargados en el HTML');
+        // Recopilar información de años académicos para depuración
+        for (let i = 1; i < yearSelect.options.length; i++) {
+            const option = yearSelect.options[i];
+            debugInfo.academicYears.push({
+                id: option.value,
+                name: option.text,
+                active: option.selected
+            });
+        }
+        updateDebugInfo();
+        
+        // Si hay un año seleccionado, cargar sus períodos
+        if (yearSelect.value) {
+            loadPeriods();
+        }
+    }
+    
+    // Configurar eventos para los selectores
+    if (yearSelect) {
+        yearSelect.addEventListener('change', function() {
+            console.log(`Año académico seleccionado: ${this.value}`);
+            loadPeriods();
+        });
+    }
+    
+    if (periodSelect) {
+        periodSelect.addEventListener('change', function() {
+            console.log(`Período seleccionado: ${this.value}`);
+            if (document.getElementById('weight-info')) {
+                loadAvailableWeight();
+            }
+        });
+    }
+    
+    if (subjectSelect) {
+        subjectSelect.addEventListener('change', function() {
+            console.log(`Asignatura seleccionada: ${this.value}`);
+            loadGrades();
+            if (document.getElementById('weight-info')) {
+                loadAvailableWeight();
+            }
+        });
+    }
+    
+    if (gradeSelect) {
+        gradeSelect.addEventListener('change', function() {
+            console.log(`Grado seleccionado: ${this.value}`);
+            loadSections();
+        });
+    }
+    
+    if (sectionSelect) {
+        sectionSelect.addEventListener('change', function() {
+            console.log(`Sección seleccionada: ${this.value}`);
+            loadTeachers();
+            // Actualizar ponderación disponible si ya hay asignatura y período seleccionados
+            const subjectId = document.getElementById('subject_id')?.value;
+            const periodId = document.getElementById('period_id')?.value;
+            if (subjectId && periodId) {
+                loadAvailableWeight();
+            }
+        });
+    }
+    
+    if (teacherSelect) {
+        teacherSelect.addEventListener('change', function() {
+            console.log(`Profesor seleccionado: ${this.value}`);
+            // Actualizar ponderación disponible si ya hay asignatura y período seleccionados
+            const subjectId = document.getElementById('subject_id')?.value;
+            const periodId = document.getElementById('period_id')?.value;
+            if (subjectId && periodId) {
+                loadAvailableWeight();
+            }
+        });
+    }
+    
+    // Configurar el modal
+    const modal = document.getElementById('newEvaluationModal');
+    if (modal) {
+        modal.addEventListener('show.bs.modal', function () {
+            console.log('Modal abriéndose');
+            
+            // Verificar que los elementos existen
+            const yearSelect = document.getElementById('academic_year_id');
+            const periodSelect = document.getElementById('period_id');
+            const subjectSelect = document.getElementById('subject_id');
+            const gradeSelect = document.getElementById('grade_id');
+            const sectionSelect = document.getElementById('section_id');
+            const teacherSelect = document.getElementById('teacher_id');
+            const weightInfo = document.getElementById('weight-info');
+            
+            if (!yearSelect) logError('Elemento academic_year_id no encontrado en modal');
+            if (!periodSelect) logError('Elemento period_id no encontrado en modal');
+            if (!subjectSelect) logError('Elemento subject_id no encontrado en modal');
+            if (!gradeSelect) logError('Elemento grade_id no encontrado en modal');
+            if (!sectionSelect) logError('Elemento section_id no encontrado en modal');
+            if (!teacherSelect) logError('Elemento teacher_id no encontrado en modal');
+            if (!weightInfo) logError('Elemento weight-info no encontrado en modal');
+            
+            // Reiniciar campos
+            if (weightInfo) {
+                weightInfo.innerHTML = '<i class="fas fa-info-circle me-2"></i>Seleccione una asignatura y un período para ver la ponderación disponible.';
+            }
+            
+            // Si no hay años académicos cargados, cargarlos
+            if (yearSelect && yearSelect.options.length <= 1) {
+                loadAcademicYears();
+            }
+        });
+    }
+    
+    // Configurar validación del formulario
+    const form = document.getElementById('new-evaluation-form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const weightInput = document.getElementById('weight');
+            if (weightInput) {
+                const weight = parseFloat(weightInput.value);
+                const maxWeight = parseFloat(weightInput.max);
+                
+                if (weight > maxWeight) {
+                    e.preventDefault();
+                    alert(`El peso no puede ser mayor que ${maxWeight}%`);
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
