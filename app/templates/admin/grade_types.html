@@ -37,7 +37,7 @@
                 <h5 class="card-title mb-3">
                     <i class="fas fa-filter me-2"></i>Filtros
                 </h5>
-                <form method="GET" action="{{ url_for('admin.evaluations') }}" class="row g-3">
+                <form method="GET" action="{{ url_for('admin.evaluations') }}" id="filter-form" class="row g-3">
                     <div class="col-md-3">
                         <label for="grade_filter" class="form-label">Grado</label>
                         <select name="grade_id" id="grade_filter" class="form-select">
@@ -53,15 +53,7 @@
                         <label for="section_filter" class="form-label">Sección</label>
                         <select name="section_id" id="section_filter" class="form-select">
                             <option value="">Todas</option>
-                            {% for grade in grades %}
-                                <optgroup label="{{ grade.name }}">
-                                    {% for section in grade.sections %}
-                                        <option value="{{ section.id }}" {% if request.args.get('section_id')|int == section.id %}selected{% endif %}>
-                                            {{ section.name }}
-                                        </option>
-                                    {% endfor %}
-                                </optgroup>
-                            {% endfor %}
+                            <!-- Las secciones se cargarán dinámicamente -->
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -105,7 +97,6 @@
         </div>
 
 
-        <!-- Tabla de evaluaciones -->
         <!-- Tabla de evaluaciones -->
         <div class="card dashboard-card">
             <div class="card-body">
@@ -926,6 +917,123 @@ $(document).ready(function() {
     }
     
     console.log('Sistema de gestión de evaluaciones inicializado correctamente.');
+
+    // ========== FUNCIONALIDAD DE FILTROS ==========
+    // Elementos del filtro
+    const gradeFilter = $('#grade_filter');
+    const sectionFilter = $('#section_filter');
+    const subjectFilter = $('#subject_filter');
+
+    // Guardar valores iniciales
+    const initialGradeId = "{{ request.args.get('grade_id') or '' }}";
+    const initialSectionId = "{{ request.args.get('section_id') or '' }}";
+    const initialSubjectId = "{{ request.args.get('subject_id') or '' }}";
+
+    // Función para cargar secciones cuando se selecciona un grado en el filtro
+    function loadSectionsForFilter(gradeId) {
+        if (!gradeId) {
+            sectionFilter.html('<option value="">Todas</option>');
+            loadSubjectsForFilter();
+            return;
+        }
+        
+        sectionFilter.html('<option value="">Cargando secciones...</option>');
+        
+        $.get(`/admin/api/grade/${gradeId}/sections`)
+            .done(function(data) {
+                sectionFilter.html('<option value="">Todas</option>');
+                data.sections.forEach(function(section) {
+                    const isSelected = initialSectionId === section.id.toString() ? 'selected' : '';
+                    sectionFilter.append(`<option value="${section.id}" ${isSelected}>${section.name}</option>`);
+                });
+                
+                // Cargar asignaturas después de cargar secciones
+                loadSubjectsForFilter();
+            })
+            .fail(function() {
+                sectionFilter.html('<option value="">Error al cargar secciones</option>');
+            });
+    }
+
+    // Función para cargar asignaturas según los filtros
+    function loadSubjectsForFilter() {
+        const gradeId = gradeFilter.val();
+        const sectionId = sectionFilter.val();
+        
+        // Limpiar select de asignaturas
+        subjectFilter.html('<option value="">Cargando...</option>');
+        
+        let url = null;
+        
+        if (sectionId) {
+            // Usar API existente para sección
+            url = `/admin/api/section/${sectionId}/subjects`;
+        } else if (gradeId) {
+            // Usar API existente para grado
+            url = `/admin/api/grade/${gradeId}/subjects`;
+        } else {
+            // Si no hay filtros, mostrar todas las asignaturas
+            subjectFilter.html('<option value="">Todas</option>');
+            {% for subject in subjects %}
+                subjectFilter.append('<option value="{{ subject.id }}" ' + 
+                    (initialSubjectId === "{{ subject.id }}" ? 'selected' : '') + 
+                    '>{{ subject.name }}</option>');
+            {% endfor %}
+            return;
+        }
+        
+        // Hacer petición AJAX
+        $.get(url)
+            .done(function(data) {
+                subjectFilter.html('<option value="">Todas</option>');
+                
+                if (data.success && data.subjects && data.subjects.length > 0) {
+                    data.subjects.forEach(function(subject) {
+                        const isSelected = initialSubjectId === subject.id.toString() ? 'selected' : '';
+                        subjectFilter.append(`<option value="${subject.id}" ${isSelected}>${subject.name}</option>`);
+                    });
+                } else if (data.subjects && data.subjects.length > 0) {
+                    // Para la API de sección que no tiene 'success'
+                    data.subjects.forEach(function(subject) {
+                        const isSelected = initialSubjectId === subject.id.toString() ? 'selected' : '';
+                        subjectFilter.append(`<option value="${subject.id}" ${isSelected}>${subject.name}</option>`);
+                    });
+                } else {
+                    subjectFilter.append('<option value="" disabled>No hay asignaturas asignadas</option>');
+                }
+            })
+            .fail(function() {
+                subjectFilter.html('<option value="">Error al cargar asignaturas</option>');
+            });
+    }
+
+    // Event listeners para los filtros
+    gradeFilter.change(function() {
+        const gradeId = $(this).val();
+        
+        // Limpiar sección seleccionada
+        sectionFilter.val('');
+        
+        if (gradeId) {
+            loadSectionsForFilter(gradeId);
+        } else {
+            sectionFilter.html('<option value="">Todas</option>');
+            loadSubjectsForFilter();
+        }
+    });
+
+    sectionFilter.change(function() {
+        loadSubjectsForFilter();
+    });
+
+    // Cargar datos inicialmente si hay filtros aplicados
+    if (initialGradeId) {
+        loadSectionsForFilter(initialGradeId);
+    } else if (initialSectionId || initialSubjectId) {
+        loadSubjectsForFilter();
+    }
+    // ========== FIN FUNCIONALIDAD DE FILTROS ==========
+
 });
 </script>
 {% endblock %}

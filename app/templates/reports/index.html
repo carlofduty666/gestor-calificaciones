@@ -59,9 +59,9 @@
         <div class="card-body">
             <h5 class="card-title">Buscar estudiante:</h5>
             
-            <!-- Filtros mejorados -->
+            <!-- Filtros -->
             <div class="row mb-4">
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <label class="form-label">Año Académico:</label>
                     <select id="student-year-select" class="form-select">
                         <option value="">Todos los años</option>
@@ -73,7 +73,7 @@
                     </select>
                 </div>
                 
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <label class="form-label">Grado:</label>
                     <select id="student-grade-select" class="form-select">
                         <option value="">Todos los grados</option>
@@ -83,18 +83,10 @@
                     </select>
                 </div>
                 
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <label class="form-label">Sección:</label>
                     <select id="student-section-select" class="form-select" disabled>
                         <option value="">Todas las secciones</option>
-                    </select>
-                </div>
-                
-                <div class="col-md-3">
-                    <label class="form-label">Buscar por:</label>
-                    <select id="search-type" class="form-select">
-                        <option value="name">Nombre/Apellido</option>
-                        <option value="id">Cédula/ID</option>
                     </select>
                 </div>
             </div>
@@ -108,13 +100,13 @@
                             <i class="fas fa-search"></i>
                         </span>
                         <input type="text" id="student-search-input" class="form-control" 
-                               placeholder="Escriba para buscar..." autocomplete="off">
+                               placeholder="Nombre, apellido o cédula..." autocomplete="off">
                         <button class="btn btn-outline-secondary" type="button" id="clear-search">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
                     <div class="form-text">
-                        <span id="search-help-text">Escriba el nombre o apellido del estudiante</span>
+                        <span id="search-help-text">Escriba el nombre, apellido o número de cédula del estudiante</span>
                     </div>
                 </div>
                 
@@ -128,6 +120,7 @@
                     </select>
                 </div>
             </div>
+
             
             <!-- Lista de estudiantes encontrados -->
             <div id="students-results" class="mb-4" style="display: none;">
@@ -177,7 +170,7 @@
         </div>
     </div>
 {% else %}
-    <div class="alert alert-warning">
+    <div class="permanent-alert permanent-alert-warning">
         <i class="bi bi-exclamation-triangle"></i> No hay un año académico activo. Contacte al administrador.
     </div>
 {% endif %}
@@ -195,7 +188,6 @@
         const studentYearSelect = document.getElementById('student-year-select');
         const studentGradeSelect = document.getElementById('student-grade-select');
         const studentSectionSelect = document.getElementById('student-section-select');
-        const searchTypeSelect = document.getElementById('search-type');
         const studentSearchInput = document.getElementById('student-search-input');
         const clearSearchBtn = document.getElementById('clear-search');
         const studentPeriodSelect = document.getElementById('student-period-select');
@@ -281,33 +273,38 @@
                 });
         }
         
-        // Cambiar texto de ayuda según el tipo de búsqueda
-        searchTypeSelect.addEventListener('change', function() {
-            const searchType = this.value;
-            if (searchType === 'name') {
-                searchHelpText.textContent = 'Escriba el nombre o apellido del estudiante';
-                studentSearchInput.placeholder = 'Ej: Juan, Pérez, Juan Pérez...';
+        // Actualizar texto de ayuda dinámicamente
+        studentSearchInput.addEventListener('input', function() {
+            const value = this.value.trim();
+            
+            // Simplificar la detección: si tiene principalmente números, es cédula
+            const cleanValue = value.replace(/[^\d]/g, ''); // Solo números
+            // Cambiar de 3 a 2 dígitos mínimos y ajustar el porcentaje
+            const isLikelyCedula = cleanValue.length >= 2 && cleanValue.length >= value.length * 0.5;
+            
+            if (isLikelyCedula) {
+                searchHelpText.textContent = 'Buscando por número de cédula...';
+                searchHelpText.className = 'form-text text-info';
+            } else if (value) {
+                searchHelpText.textContent = 'Buscando por nombre o apellido...';
+                searchHelpText.className = 'form-text text-success';
             } else {
-                searchHelpText.textContent = 'Escriba el número de cédula del estudiante';
-                studentSearchInput.placeholder = 'Ej: 12345678, V-12345678...';
+                searchHelpText.textContent = 'Escriba el nombre, apellido o número de cédula del estudiante';
+                searchHelpText.className = 'form-text';
             }
             
-            // Limpiar búsqueda actual
-            studentSearchInput.value = '';
-            searchStudents();
-        });
-        
-        // Búsqueda en tiempo real
-        studentSearchInput.addEventListener('input', function() {
+            // Búsqueda con debounce
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
                 searchStudents();
             }, 300);
         });
-        
+
         // Limpiar búsqueda
         clearSearchBtn.addEventListener('click', function() {
             studentSearchInput.value = '';
+            searchHelpText.textContent = 'Escriba el nombre, apellido o número de cédula del estudiante';
+            searchHelpText.className = 'form-text';
             searchStudents();
         });
         
@@ -320,7 +317,6 @@
             const yearId = studentYearSelect.value;
             const gradeId = studentGradeSelect.value;
             const sectionId = studentSectionSelect.value;
-            const searchType = searchTypeSelect.value;
             const searchTerm = studentSearchInput.value.trim();
             
             // Si no hay término de búsqueda y no hay filtros, mostrar mensaje inicial
@@ -336,10 +332,7 @@
             if (yearId) params.append('year_id', yearId);
             if (gradeId) params.append('grade_id', gradeId);
             if (sectionId) params.append('section_id', sectionId);
-            if (searchTerm) {
-                params.append('search_type', searchType);
-                params.append('search_term', searchTerm);
-            }
+            if (searchTerm) params.append('search_term', searchTerm);
             
             fetch(`/admin/api/students/search?${params.toString()}`)
                 .then(response => response.json())
@@ -358,7 +351,7 @@
                     showError('Error al buscar estudiantes');
                 });
         }
-        
+                
         // Función para renderizar estudiantes
         function renderStudents() {
             if (filteredStudents.length === 0) {

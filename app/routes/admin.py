@@ -2408,30 +2408,34 @@ def search_students():
         year_id = request.args.get('year_id', type=int)
         grade_id = request.args.get('grade_id', type=int)
         section_id = request.args.get('section_id', type=int)
-        search_type = request.args.get('search_type', 'name')
         search_term = request.args.get('search_term', '').strip()
         
-        # Construir query base
-        query = Student.query.filter_by(is_active=True)
+        # Construir query base con JOIN único
+        query = Student.query.join(Section).join(Grade).filter(Student.is_active == True)
         
-        # Filtrar por año académico (a través de la sección)
-        if year_id:
-            query = query.join(Section).join(Grade).join(AcademicYear).filter(
-                AcademicYear.id == year_id
-            )
-        
-        # Filtrar por grado
-        if grade_id:
-            query = query.join(Section).filter(Section.grade_id == grade_id)
-        
-        # Filtrar por sección
+        # Aplicar filtros en orden de especificidad
         if section_id:
+            # Filtro más específico: sección exacta
             query = query.filter(Student.section_id == section_id)
+        elif grade_id:
+            # Filtro por grado: todas las secciones de ese grado
+            query = query.filter(Section.grade_id == grade_id)
+        elif year_id:
+            # Filtro por año académico: buscar secciones que tengan evaluaciones en este año
+            sections_with_evaluations = db.session.query(GradeType.section_id).join(Period).filter(
+                Period.academic_year_id == year_id
+            ).distinct()
+            
+            query = query.filter(Student.section_id.in_(sections_with_evaluations))
         
-        # Filtrar por término de búsqueda
+        # Filtrar por término de búsqueda (detección automática)
         if search_term:
-            if search_type == 'name':
-                # Búsqueda por nombre o apellido
+            # Detectar si es búsqueda por cédula (solo números, o con V-/E-)
+            clean_term = ''.join(filter(str.isdigit, search_term))
+            
+            if clean_term and len(clean_term) >= 2:  # Si tiene al menos 2 dígitos, buscar por cédula
+                query = query.filter(Student.student_id.ilike(f'%{clean_term}%'))
+            else:  # Si no, buscar por nombre
                 search_filter = or_(
                     Student.first_name.ilike(f'%{search_term}%'),
                     Student.last_name.ilike(f'%{search_term}%'),
@@ -2439,17 +2443,9 @@ def search_students():
                     func.concat(Student.last_name, ' ', Student.first_name).ilike(f'%{search_term}%')
                 )
                 query = query.filter(search_filter)
-            elif search_type == 'id':
-                # Búsqueda por cédula/ID
-                # Limpiar el término de búsqueda (quitar V-, E-, guiones, etc.)
-                clean_term = ''.join(filter(str.isdigit, search_term))
-                if clean_term:
-                    query = query.filter(Student.student_id.ilike(f'%{clean_term}%'))
         
-        # Ejecutar query con joins necesarios
-        students = query.join(Section).join(Grade).order_by(
-            Student.last_name, Student.first_name
-        ).all()
+        # Ejecutar query con orden
+        students = query.order_by(Student.last_name, Student.first_name).all()
         
         # Formatear resultados
         students_data = []
@@ -2486,8 +2482,8 @@ def search_students():
                 'year_id': year_id,
                 'grade_id': grade_id,
                 'section_id': section_id,
-                'search_type': search_type,
-                'search_term': search_term
+                'search_term': search_term,
+                'search_type': 'auto_detected'
             }
         })
         
