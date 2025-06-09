@@ -470,8 +470,8 @@ $(document).ready(function() {
     window.viewStudentReport = function(studentId) {
         const student = studentsData.find(s => s.id === studentId);
         if (student) {
-            // Usar la ruta correcta que ya existe
-            window.open(`/reports/student/${studentId}/period/${periodId}`, '_blank');
+            // Redirigir al reporte del estudiante
+            window.open(`/reports/student/${studentId}?period_id=${periodId}`, '_blank');
         }
     };
     

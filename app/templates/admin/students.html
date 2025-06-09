@@ -241,7 +241,7 @@
         {% for student in students %}
         <!-- Modal para ver detalles del estudiante -->
         <div class="modal fade" id="viewStudentModal{{ student.id }}" tabindex="-1" aria-labelledby="viewStudentModalLabel{{ student.id }}" aria-hidden="true">
-            <div class="modal-dialog modal-lg">
+            <div class="modal-dialog modal-xl"> <!-- Cambiar a modal-xl para más espacio -->
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title" id="viewStudentModalLabel{{ student.id }}">
@@ -327,91 +327,69 @@
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link active" id="grades-tab{{ student.id }}" data-bs-toggle="tab" 
                                         data-bs-target="#grades{{ student.id }}" type="button" role="tab" 
-                                        aria-controls="grades{{ student.id }}" aria-selected="true">
+                                        aria-controls="grades{{ student.id }}" aria-selected="true"
+                                        style="color: #0066cc !important; font-weight: 600 !important; 
+                                            background-color: white !important; 
+                                            border: 1px solid #dee2e6 !important; 
+                                            border-bottom: 1px solid white !important;
+                                            border-radius: 0.375rem 0.375rem 0 0 !important;">
                                     Boletín de Calificaciones
                                 </button>
                             </li>
                         </ul>
-                        <div class="tab-content p-3 border border-top-0 rounded-bottom" id="studentTabsContent{{ student.id }}">
+                        <div class="tab-content border border-top-0 rounded-bottom p-3" id="studentTabsContent{{ student.id }}" 
+                            style="background-color: white; border-color: #dee2e6 !important;">
                             <div class="tab-pane fade show active" id="grades{{ student.id }}" role="tabpanel" aria-labelledby="grades-tab{{ student.id }}">
-                                {% if student.final_grades.count() > 0 %}
-                                    <div class="table-responsive">
-                                        <table class="table table-bordered table-sm">
-                                            <thead class="table-light">
-                                                <tr>
-                                                    <th>Asignatura</th>
-                                                    {% for period in active_year.periods %}
-                                                        <th class="text-center">{{ period.name }}</th>
-                                                    {% endfor %}
-                                                    <th class="text-center">Definitiva</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {% for subject in subjects %}
-                                                    <tr>
-                                                        <td>{{ subject.name }}</td>
-                                                        {% for period in active_year.periods %}
-                                                            {% set found = false %}
-                                                            {% for grade in student.final_grades %}
-                                                                {% if grade.subject_id == subject.id and grade.period_id == period.id %}
-                                                                    <td class="text-center">
-                                                                        <span class="badge {% if grade.value >= passing_grade %}bg-success{% else %}bg-danger{% endif %}">
-                                                                            {{ grade.value }}
-                                                                        </span>
-                                                                    </td>
-                                                                    {% set found = true %}
-                                                                {% endif %}
-                                                            {% endfor %}
-                                                            {% if not found %}
-                                                                <td class="text-center">-</td>
-                                                            {% endif %}
-                                                        {% endfor %}
-                                                        
-                                                        <!-- Calcular definitiva -->
-                                                        {% set total = 0 %}
-                                                        {% set count = 0 %}
-                                                        {% for grade in student.final_grades %}
-                                                            {% if grade.subject_id == subject.id %}
-                                                                {% set total = total + grade.value %}
-                                                                {% set count = count + 1 %}
-                                                            {% endif %}
-                                                        {% endfor %}
-                                                        
-                                                        {% if count > 0 %}
-                                                            {% set final = total / count %}
-                                                            <td class="text-center">
-                                                                <span class="badge {% if final >= passing_grade %}bg-success{% else %}bg-danger{% endif %}">
-                                                                    {{ final|round(1) }}
-                                                                </span>
-                                                            </td>
-                                                        {% else %}
-                                                            <td class="text-center">-</td>
-                                                        {% endif %}
-                                                    </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                        </table>
+                                <!-- Loading spinner -->
+                                <div id="grades-loading{{ student.id }}" class="text-center py-4">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Cargando calificaciones...</span>
                                     </div>
-                                    <div class="text-end mt-3">
-                                        <a href="{{ url_for('reports.student_report', student_id=student.id) }}" class="btn btn-sm btn-primary" target="_blank">
-                                            <i class="fas fa-file-pdf me-1"></i> Ver Boletín Completo
-                                        </a>
-                                    </div>
-                                {% else %}
-                                    <div class="permanent-alert permanent-alert-info">
-                                        <i class="fas fa-info-circle me-2"></i>
-                                        No hay calificaciones registradas para este estudiante.
-                                    </div>
-                                {% endif %}
+                                    <p class="mt-2">Cargando calificaciones...</p>
+                                </div>
+                                
+                                <!-- Container para las calificaciones -->
+                                <div id="grades-content{{ student.id }}" style="display: none;">
+                                    <!-- Las calificaciones se cargarán aquí dinámicamente -->
+                                </div>
+                                
+                                <!-- Error message -->
+                                <div id="grades-error{{ student.id }}" style="display: none;" class="permanent-alert permanent-alert-danger">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    Error al cargar las calificaciones. Por favor, intente nuevamente.
+                                </div>
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
+                        {% if active_year and active_year.periods %}
+                            <div class="dropdown">
+                                <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-file-pdf me-1"></i> Ver Boletín
+                                </button>
+                                <ul class="dropdown-menu">
+                                    {% for period in active_year.periods %}
+                                        <li>
+                                            <a class="dropdown-item" href="{{ url_for('reports.student_report', student_id=student.id, period_id=period.id) }}" target="_blank">
+                                                {{ period.name }}
+                                            </a>
+                                        </li>
+                                    {% endfor %}
+                                    <!-- Eliminar la opción "all" por ahora -->
+                                </ul>
+                            </div>
+                        {% else %}
+                            <button class="btn btn-primary" disabled title="No hay períodos disponibles">
+                                <i class="fas fa-file-pdf me-1"></i> Ver Boletín Completo
+                            </button>
+                        {% endif %}
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                     </div>
+
                 </div>
             </div>
         </div>
+
 
         <!-- Modal para editar estudiante -->
         <div class="modal fade" id="editStudentModal{{ student.id }}" tabindex="-1" aria-labelledby="editStudentModalLabel{{ student.id }}" aria-hidden="true">
@@ -508,7 +486,7 @@
                     </div>
                     <div class="modal-body">
                         <p>¿Está seguro de que desea eliminar al estudiante <strong>{{ student.first_name }} {{ student.last_name }}</strong> (Cédula: {{ student.student_id }})?</p>
-                        <div class="alert alert-warning">
+                        <div class="permanent-alert permanent-alert-warning">
                             <i class="fas fa-exclamation-triangle me-2"></i>
                             Esta acción no se puede deshacer. Se eliminarán todas las calificaciones y registros asociados a este estudiante.
                         </div>
@@ -619,7 +597,7 @@
                     </div>
                     <div class="modal-body">
                         <form action="{{ url_for('admin.import_students') }}" method="POST" enctype="multipart/form-data">
-                            <div class="alert alert-info">
+                            <div class="permanent-alert permanent-alert-info">
                                 <i class="fas fa-info-circle me-2"></i>
                                 Seleccione un archivo Excel (.xlsx) con los datos de los estudiantes a importar.
                                 <hr>
@@ -693,6 +671,22 @@
         font-weight: 600;
         font-size: 2rem;
     }
+    
+    /* Estilos para las calificaciones */
+    .collapse .card-body {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+    }
+    
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    
+    .badge.fs-6 {
+        font-size: 0.875rem !important;
+        padding: 0.5em 0.75em;
+    }
 </style>
 {% endblock %}
 
@@ -737,6 +731,213 @@
                     type: 'GET',
                     success: function(response) {
                         // Limpiar y llenar el selector de secciones
+                        sectionSelect.empty();
+                        
+                        response.sections.forEach(function(section) {
+                            sectionSelect.append('<option value="' + section.id + '">' + section.name + '</option>');
+                        });
+                    },
+                    error: function() {
+                        alert('Error al cargar las secciones');
+                    }
+                });
+            }
+        });
+
+        // Función para cargar calificaciones de un estudiante
+        function loadStudentGrades(studentId) {
+            const loadingDiv = $(`#grades-loading${studentId}`);
+            const contentDiv = $(`#grades-content${studentId}`);
+            const errorDiv = $(`#grades-error${studentId}`);
+            
+            // Mostrar loading
+            loadingDiv.show();
+            contentDiv.hide();
+            errorDiv.hide();
+            
+            $.get(`/admin/api/student/${studentId}/grades`)
+                .done(function(data) {
+                    if (data.success) {
+                        renderGradesTable(studentId, data);
+                        loadingDiv.hide();
+                        contentDiv.show();
+                    } else {
+                        showGradesError(studentId, data.error || 'Error desconocido');
+                    }
+                })
+                .fail(function(xhr) {
+                    let errorMessage = 'Error al cargar las calificaciones';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMessage = xhr.responseJSON.error;
+                    }
+                    showGradesError(studentId, errorMessage);
+                });
+        }
+        
+        function showGradesError(studentId, message) {
+            $(`#grades-loading${studentId}`).hide();
+            $(`#grades-content${studentId}`).hide();
+            $(`#grades-error${studentId}`).text(message).show();
+        }
+        
+        function renderGradesTable(studentId, data) {
+            const contentDiv = $(`#grades-content${studentId}`);
+            
+            if (Object.keys(data.grades).length === 0) {
+                contentDiv.html(`
+                    <div class="permanent-alert permanent-alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No hay calificaciones registradas para este estudiante.
+                    </div>
+                `);
+                return;
+            }
+            
+            let html = `
+                <div class="mb-3">
+                    <h6>Año Académico: ${data.academic_year.name}</h6>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Asignatura</th>
+            `;
+            
+            // Headers de períodos
+            data.periods.forEach(period => {
+                html += `<th class="text-center">${period.name}</th>`;
+            });
+            html += `<th class="text-center">Promedio Final</th></tr></thead><tbody>`;
+            
+            // Filas de asignaturas
+            Object.values(data.grades).forEach(subject => {
+                html += `<tr><td><strong>${subject.subject_name}</strong><br><small class="text-muted">${subject.subject_code}</small></td>`;
+                
+            // Calificaciones por período
+            data.periods.forEach(period => {
+                const periodData = subject.periods[period.id];
+                if (periodData) {
+                    const grade = periodData.final_grade || periodData.period_average;
+                    const badgeClass = grade >= data.passing_grade ? 'bg-success' : 'bg-danger';
+                    
+                    html += `
+                        <td class="text-center">
+                            <span class="badge ${badgeClass}" title="Promedio del período">${grade}</span>
+                    `;
+                    
+                    // Mostrar evaluaciones individuales en tooltip o dropdown
+                    if (periodData.evaluations.length > 0) {
+                        html += `
+                            <div class="mt-1">
+                                <button class="btn btn-sm btn-outline-info" type="button" 
+                                        data-bs-toggle="collapse" 
+                                        data-bs-target="#evaluations_${studentId}_${subject.subject_code}_${period.id}" 
+                                        aria-expanded="false">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <div class="collapse mt-2" id="evaluations_${studentId}_${subject.subject_code}_${period.id}">
+                                <div class="card card-body p-2">
+                        `;
+                        
+                        periodData.evaluations.forEach(evaluation => {
+                            const evalBadgeClass = evaluation.value >= data.passing_grade ? 'bg-success' : 'bg-danger';
+                            html += `
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <small>${evaluation.evaluation_name}</small>
+                                    <span class="badge ${evalBadgeClass}">${evaluation.value}</span>
+                                </div>
+                                <div class="text-muted" style="font-size: 0.75rem;">
+                                    Ponderación: ${evaluation.weight}%
+                                    ${evaluation.comments ? `<br>Comentarios: ${evaluation.comments}` : ''}
+                                </div>
+                                <hr class="my-1">
+                            `;
+                        });
+                        
+                        html += `
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    html += `</td>`;
+                } else {
+                    html += `<td class="text-center">-</td>`;
+                }
+            });
+            
+                // Promedio final de la asignatura
+                const finalAverage = subject.final_average;
+                const finalBadgeClass = finalAverage >= data.passing_grade ? 'bg-success' : 'bg-danger';
+                html += `
+                    <td class="text-center">
+                        <span class="badge ${finalBadgeClass} fs-6">${finalAverage}</span>
+                    </td>
+                </tr>`;
+            });
+            
+            html += `</tbody></table></div>`;
+            
+            // Agregar leyenda
+            html += `
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        <span class="badge bg-success">Verde</span>: Aprobado (≥${data.passing_grade}) | 
+                        <span class="badge bg-danger">Rojo</span>: Reprobado (<${data.passing_grade}) | 
+                        Haga clic en <i class="fas fa-eye"></i> para ver evaluaciones individuales
+                    </small>
+                </div>
+            `;
+            
+            contentDiv.html(html);
+        }
+    
+        // Event listener para cuando se abre el modal
+        $('[id^="viewStudentModal"]').on('show.bs.modal', function() {
+            const modalId = $(this).attr('id');
+            const studentId = modalId.replace('viewStudentModal', '');
+            
+            // Cargar calificaciones cuando se abre el modal
+            loadStudentGrades(studentId);
+        });
+        
+        // Función para recargar calificaciones (botón de refresh)
+        window.reloadStudentGrades = function(studentId) {
+            loadStudentGrades(studentId);
+        };
+        
+        // Resto del código JavaScript existente...
+        $('#grade_id').change(function() {
+            const gradeId = $(this).val();
+            const sectionSelect = $('#section_id');
+            
+            if (gradeId) {
+                sectionSelect.prop('disabled', false);
+                sectionSelect.find('option').hide();
+                sectionSelect.find('option:first').show();
+                sectionSelect.find('option[data-grade-id="' + gradeId + '"]').show();
+                sectionSelect.val('');
+            } else {
+                sectionSelect.prop('disabled', true);
+                sectionSelect.find('option').hide();
+                sectionSelect.find('option:first').show();
+                sectionSelect.val('');
+            }
+        });
+        
+        $('.grade-select').change(function() {
+            const gradeId = $(this).val();
+            const studentId = $(this).data('student-id');
+            const sectionSelect = $('#section_id' + studentId);
+            
+            if (gradeId) {
+                $.ajax({
+                    url: '/admin/grades/' + gradeId + '/sections',
+                    type: 'GET',
+                    success: function(response) {
                         sectionSelect.empty();
                         
                         response.sections.forEach(function(section) {

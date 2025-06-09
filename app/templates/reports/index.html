@@ -59,37 +59,119 @@
         <div class="card-body">
             <h5 class="card-title">Buscar estudiante:</h5>
             
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="mb-3">
-                        <label class="form-label">Estudiante:</label>
-                        <select id="student-select" class="form-select" disabled>
-                            <option value="">Seleccione un estudiante</option>
-                        </select>
-                    </div>
+            <!-- Filtros mejorados -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <label class="form-label">Año Académico:</label>
+                    <select id="student-year-select" class="form-select">
+                        <option value="">Todos los años</option>
+                        {% for year in academic_years %}
+                            <option value="{{ year.id }}" {% if year.is_active %}selected{% endif %}>
+                                {{ year.name }} {% if year.is_active %}(Activo){% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
                 </div>
                 
                 <div class="col-md-3">
-                    <div class="mb-3">
-                        <label class="form-label">Período:</label>
-                        <select id="student-period-select" class="form-select" disabled>
-                            <option value="">Seleccione un período</option>
-                            {% for period in periods %}
-                                <option value="{{ period.id }}">{{ period.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+                    <label class="form-label">Grado:</label>
+                    <select id="student-grade-select" class="form-select">
+                        <option value="">Todos los grados</option>
+                        {% for grade in grades %}
+                            <option value="{{ grade.id }}">{{ grade.name }} ({{ grade.level }})</option>
+                        {% endfor %}
+                    </select>
                 </div>
                 
                 <div class="col-md-3">
-                    <div class="mb-3">
-                        <label class="form-label">Acciones:</label>
-                        <div>
-                            <button id="view-student-report-btn" class="btn btn-primary" disabled>
-                                <i class="bi bi-file-earmark-text"></i> Ver Reporte
-                            </button>
-                        </div>
+                    <label class="form-label">Sección:</label>
+                    <select id="student-section-select" class="form-select" disabled>
+                        <option value="">Todas las secciones</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">Buscar por:</label>
+                    <select id="search-type" class="form-select">
+                        <option value="name">Nombre/Apellido</option>
+                        <option value="id">Cédula/ID</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Buscador -->
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <label class="form-label">Buscar estudiante:</label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-search"></i>
+                        </span>
+                        <input type="text" id="student-search-input" class="form-control" 
+                               placeholder="Escriba para buscar..." autocomplete="off">
+                        <button class="btn btn-outline-secondary" type="button" id="clear-search">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
+                    <div class="form-text">
+                        <span id="search-help-text">Escriba el nombre o apellido del estudiante</span>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label">Período para el reporte:</label>
+                    <select id="student-period-select" class="form-select">
+                        <option value="">Seleccione un período</option>
+                        {% for period in periods %}
+                            <option value="{{ period.id }}">{{ period.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Lista de estudiantes encontrados -->
+            <div id="students-results" class="mb-4" style="display: none;">
+                <h6 class="border-bottom pb-2 mb-3">
+                    <i class="fas fa-users me-2"></i>Estudiantes encontrados 
+                    <span id="students-count" class="badge bg-primary">0</span>
+                </h6>
+                <div id="students-list" class="row">
+                    <!-- Los estudiantes se cargarán aquí dinámicamente -->
+                </div>
+                
+                <!-- Paginación -->
+                <nav id="students-pagination" style="display: none;">
+                    <ul class="pagination justify-content-center">
+                        <!-- La paginación se generará dinámicamente -->
+                    </ul>
+                </nav>
+            </div>
+            
+            <!-- Estado de carga -->
+            <div id="loading-students" style="display: none;">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Buscando...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Buscando estudiantes...</p>
+                </div>
+            </div>
+            
+            <!-- Estado vacío -->
+            <div id="no-students" style="display: none;">
+                <div class="text-center py-4">
+                    <i class="fas fa-user-slash fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No se encontraron estudiantes</h5>
+                    <p class="text-muted">Intente ajustar los filtros de búsqueda</p>
+                </div>
+            </div>
+            
+            <!-- Mensaje inicial -->
+            <div id="initial-message">
+                <div class="text-center py-4">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Buscar estudiantes</h5>
+                    <p class="text-muted">Use los filtros y el buscador para encontrar estudiantes</p>
                 </div>
             </div>
         </div>
@@ -104,12 +186,40 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Elementos del DOM
         const periodSelect = document.getElementById('period-select');
         const sectionSelect = document.getElementById('section-select');
         const viewReportBtn = document.getElementById('view-report-btn');
-        const studentSelect = document.getElementById('student-select');
+        
+        // Elementos del buscador de estudiantes
+        const studentYearSelect = document.getElementById('student-year-select');
+        const studentGradeSelect = document.getElementById('student-grade-select');
+        const studentSectionSelect = document.getElementById('student-section-select');
+        const searchTypeSelect = document.getElementById('search-type');
+        const studentSearchInput = document.getElementById('student-search-input');
+        const clearSearchBtn = document.getElementById('clear-search');
         const studentPeriodSelect = document.getElementById('student-period-select');
-        const viewStudentReportBtn = document.getElementById('view-student-report-btn');
+        const searchHelpText = document.getElementById('search-help-text');
+        
+        // Elementos de resultados
+        const studentsResults = document.getElementById('students-results');
+        const studentsList = document.getElementById('students-list');
+        const studentsCount = document.getElementById('students-count');
+        const studentsPagination = document.getElementById('students-pagination');
+        const loadingStudents = document.getElementById('loading-students');
+        const noStudents = document.getElementById('no-students');
+        const initialMessage = document.getElementById('initial-message');
+        
+        // Variables para paginación
+        let currentPage = 1;
+        const studentsPerPage = 12;
+        let allStudents = [];
+        let filteredStudents = [];
+        
+        // Timeout para búsqueda
+        let searchTimeout;
+        
+        // === FUNCIONES PARA REPORTES DE SECCIÓN ===
         
         // Habilitar selección de sección cuando se selecciona un período
         periodSelect.addEventListener('change', function() {
@@ -124,43 +234,7 @@
         
         // Habilitar botón de reporte cuando se selecciona una sección
         sectionSelect.addEventListener('change', function() {
-            if (this.value) {
-                viewReportBtn.disabled = false;
-                
-                // Cargar estudiantes de esta sección
-                fetch(`/api/students/section/${this.value}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        studentSelect.innerHTML = '<option value="">Seleccione un estudiante</option>';
-                        data.forEach(student => {
-                            const option = document.createElement('option');
-                            option.value = student.id;
-                            option.textContent = `${student.last_name}, ${student.first_name} (${student.student_id})`;
-                            studentSelect.appendChild(option);
-                        });
-                        studentSelect.disabled = false;
-                    });
-            } else {
-                viewReportBtn.disabled = true;
-                studentSelect.disabled = true;
-                studentSelect.innerHTML = '<option value="">Seleccione un estudiante</option>';
-            }
-        });
-        
-        // Habilitar selección de período para estudiante
-        studentSelect.addEventListener('change', function() {
-            if (this.value) {
-                studentPeriodSelect.disabled = false;
-            } else {
-                studentPeriodSelect.disabled = true;
-                studentPeriodSelect.value = '';
-                viewStudentReportBtn.disabled = true;
-            }
-        });
-        
-        // Habilitar botón de reporte de estudiante
-        studentPeriodSelect.addEventListener('change', function() {
-            viewStudentReportBtn.disabled = !this.value;
+            viewReportBtn.disabled = !this.value;
         });
         
         // Redirigir a reporte de sección
@@ -172,14 +246,403 @@
             }
         });
         
-        // Redirigir a reporte de estudiante
-        viewStudentReportBtn.addEventListener('click', function() {
-            const studentId = studentSelect.value;
-            const periodId = studentPeriodSelect.value;
-            if (studentId && periodId) {
-                window.location.href = `/reports/student/${studentId}/period/${periodId}`;
+        // === FUNCIONES PARA BÚSQUEDA DE ESTUDIANTES ===
+        
+        // Cargar secciones cuando se selecciona un grado
+        studentGradeSelect.addEventListener('change', function() {
+            const gradeId = this.value;
+            
+            if (gradeId) {
+                studentSectionSelect.disabled = false;
+                loadSectionsForGrade(gradeId);
+            } else {
+                studentSectionSelect.disabled = true;
+                studentSectionSelect.innerHTML = '<option value="">Todas las secciones</option>';
             }
+            
+            searchStudents();
         });
+        
+        // Función para cargar secciones de un grado
+        function loadSectionsForGrade(gradeId) {
+            fetch(`/admin/api/grade/${gradeId}/sections`)
+                .then(response => response.json())
+                .then(data => {
+                    studentSectionSelect.innerHTML = '<option value="">Todas las secciones</option>';
+                    data.sections.forEach(section => {
+                        const option = document.createElement('option');
+                        option.value = section.id;
+                        option.textContent = section.name;
+                        studentSectionSelect.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error al cargar secciones:', error);
+                });
+        }
+        
+        // Cambiar texto de ayuda según el tipo de búsqueda
+        searchTypeSelect.addEventListener('change', function() {
+            const searchType = this.value;
+            if (searchType === 'name') {
+                searchHelpText.textContent = 'Escriba el nombre o apellido del estudiante';
+                studentSearchInput.placeholder = 'Ej: Juan, Pérez, Juan Pérez...';
+            } else {
+                searchHelpText.textContent = 'Escriba el número de cédula del estudiante';
+                studentSearchInput.placeholder = 'Ej: 12345678, V-12345678...';
+            }
+            
+            // Limpiar búsqueda actual
+            studentSearchInput.value = '';
+            searchStudents();
+        });
+        
+        // Búsqueda en tiempo real
+        studentSearchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                searchStudents();
+            }, 300);
+        });
+        
+        // Limpiar búsqueda
+        clearSearchBtn.addEventListener('click', function() {
+            studentSearchInput.value = '';
+            searchStudents();
+        });
+        
+        // Event listeners para filtros
+        studentYearSelect.addEventListener('change', searchStudents);
+        studentSectionSelect.addEventListener('change', searchStudents);
+        
+        // Función principal de búsqueda
+        function searchStudents() {
+            const yearId = studentYearSelect.value;
+            const gradeId = studentGradeSelect.value;
+            const sectionId = studentSectionSelect.value;
+            const searchType = searchTypeSelect.value;
+            const searchTerm = studentSearchInput.value.trim();
+            
+            // Si no hay término de búsqueda y no hay filtros, mostrar mensaje inicial
+            if (!searchTerm && !yearId && !gradeId && !sectionId) {
+                showInitialMessage();
+                return;
+            }
+            
+            showLoading();
+            
+            // Construir parámetros de búsqueda
+            const params = new URLSearchParams();
+            if (yearId) params.append('year_id', yearId);
+            if (gradeId) params.append('grade_id', gradeId);
+            if (sectionId) params.append('section_id', sectionId);
+            if (searchTerm) {
+                params.append('search_type', searchType);
+                params.append('search_term', searchTerm);
+            }
+            
+            fetch(`/admin/api/students/search?${params.toString()}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        allStudents = data.students;
+                        filteredStudents = allStudents;
+                        currentPage = 1;
+                        renderStudents();
+                    } else {
+                        showError(data.error || 'Error al buscar estudiantes');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error en búsqueda:', error);
+                    showError('Error al buscar estudiantes');
+                });
+        }
+        
+        // Función para renderizar estudiantes
+        function renderStudents() {
+            if (filteredStudents.length === 0) {
+                showNoStudents();
+                return;
+            }
+            
+            // Calcular paginación
+            const totalPages = Math.ceil(filteredStudents.length / studentsPerPage);
+            const startIndex = (currentPage - 1) * studentsPerPage;
+            const endIndex = startIndex + studentsPerPage;
+            const studentsToShow = filteredStudents.slice(startIndex, endIndex);
+            
+            // Renderizar lista de estudiantes
+            let studentsHtml = '';
+            studentsToShow.forEach(student => {
+                const age = student.age ? `(${student.age} años)` : '';
+                studentsHtml += `
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card student-card h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-2">
+                                    <div class="avatar-circle bg-primary text-white me-3">
+                                        ${student.first_name.charAt(0)}${student.last_name.charAt(0)}
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="card-title mb-1">${student.last_name}, ${student.first_name}</h6>
+                                        <small class="text-muted">ID: ${student.student_id}</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-graduation-cap me-1"></i>
+                                        ${student.section_name}
+                                    </small>
+                                    ${student.birth_date ? `<br><small class="text-muted"><i class="fas fa-birthday-cake me-1"></i>${student.birth_date} ${age}</small>` : ''}
+                                </div>
+                                
+                                <div class="d-grid">
+                                    <button class="btn btn-sm btn-primary view-student-report" 
+                                            data-student-id="${student.id}" 
+                                            data-student-name="${student.first_name} ${student.last_name}">
+                                        <i class="fas fa-file-alt me-1"></i>Ver Reporte
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            studentsList.innerHTML = studentsHtml;
+            studentsCount.textContent = filteredStudents.length;
+            
+            // Renderizar paginación
+            renderPagination(totalPages);
+            
+            // Mostrar resultados
+            showResults();
+            
+            // Agregar event listeners a los botones de reporte
+            document.querySelectorAll('.view-student-report').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const studentId = this.dataset.studentId;
+                    const studentName = this.dataset.studentName;
+                    const periodId = studentPeriodSelect.value;
+                    
+                    if (!periodId) {
+                        alert('Por favor seleccione un período para generar el reporte');
+                        studentPeriodSelect.focus();
+                        return;
+                    }
+                    
+                    // Confirmar antes de generar reporte
+                    if (confirm(`¿Generar reporte de ${studentName} para el período seleccionado?`)) {
+                        window.open(`/reports/student/${studentId}/period/${periodId}`, '_blank');
+                    }
+                });
+            });
+        }
+        
+        // Función para renderizar paginación
+        function renderPagination(totalPages) {
+            if (totalPages <= 1) {
+                studentsPagination.style.display = 'none';
+                return;
+            }
+            
+            let paginationHtml = '';
+            
+            // Botón anterior
+            if (currentPage > 1) {
+                paginationHtml += `
+                    <li class="page-item">
+                        <a class="page-link" href="#" data-page="${currentPage - 1}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                `;
+            } else {
+                paginationHtml += `
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="fas fa-chevron-left"></i></span>
+                    </li>
+                `;
+            }
+            
+            // Páginas
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, currentPage + 2);
+            
+            if (startPage > 1) {
+                paginationHtml += `<li class="page-item"><a class="page-link" href="#" data-page="1">1</a></li>`;
+                if (startPage > 2) {
+                    paginationHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                if (i === currentPage) {
+                    paginationHtml += `<li class="page-item active"><span class="page-link">${i}</span></li>`;
+                } else {
+                    paginationHtml += `<li class="page-item"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+                }
+            }
+            
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    paginationHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+                paginationHtml += `<li class="page-item"><a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a></li>`;
+            }
+            
+            // Botón siguiente
+            if (currentPage < totalPages) {
+                paginationHtml += `
+                    <li class="page-item">
+                        <a class="page-link" href="#" data-page="${currentPage + 1}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                `;
+            } else {
+                paginationHtml += `
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="fas fa-chevron-right"></i></span>
+                    </li>
+                `;
+            }
+            
+            studentsPagination.querySelector('.pagination').innerHTML = paginationHtml;
+            studentsPagination.style.display = 'block';
+            
+            // Event listeners para paginación
+            studentsPagination.querySelectorAll('a.page-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const page = parseInt(this.dataset.page);
+                    if (page && page !== currentPage) {
+                        currentPage = page;
+                        renderStudents();
+                        
+                        // Scroll suave hacia los resultados
+                        studentsResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                });
+            });
+        }
+        
+        // Funciones para mostrar diferentes estados
+        function showLoading() {
+            hideAllStates();
+            loadingStudents.style.display = 'block';
+        }
+        
+        function showResults() {
+            hideAllStates();
+            studentsResults.style.display = 'block';
+        }
+        
+        function showNoStudents() {
+            hideAllStates();
+            noStudents.style.display = 'block';
+        }
+        
+        function showInitialMessage() {
+            hideAllStates();
+            initialMessage.style.display = 'block';
+        }
+        
+        function showError(message) {
+            hideAllStates();
+            noStudents.style.display = 'block';
+            noStudents.querySelector('h5').textContent = 'Error en la búsqueda';
+            noStudents.querySelector('p').textContent = message;
+        }
+        
+        function hideAllStates() {
+            studentsResults.style.display = 'none';
+            loadingStudents.style.display = 'none';
+            noStudents.style.display = 'none';
+            initialMessage.style.display = 'none';
+        }
+        
+        // Inicializar con mensaje inicial
+        showInitialMessage();
     });
 </script>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .student-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        border: 1px solid #dee2e6;
+    }
+    
+    .student-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        border-color: #007bff;
+    }
+    
+    .avatar-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .card-header {
+        border-bottom: 2px solid rgba(255,255,255,0.2);
+    }
+    
+    .btn-primary {
+        background: linear-gradient(45deg, #007bff, #0056b3);
+        border: none;
+    }
+    
+    .btn-primary:hover {
+        background: linear-gradient(45deg, #0056b3, #004085);
+        transform: translateY(-1px);
+    }
+    
+    .pagination .page-link {
+        border-radius: 6px;
+        margin: 0 2px;
+        border: 1px solid #dee2e6;
+    }
+    
+    .pagination .page-item.active .page-link {
+        background: linear-gradient(45deg, #007bff, #0056b3);
+        border-color: #007bff;
+    }
+    
+    .input-group .form-control:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+    }
+    
+    .spinner-border {
+        width: 3rem;
+        height: 3rem;
+    }
+    
+    @media (max-width: 768px) {
+        .col-md-3, .col-md-4, .col-md-8 {
+            margin-bottom: 1rem;
+        }
+        
+        .student-card {
+            margin-bottom: 1rem;
+        }
+    }
+</style>
 {% endblock %}

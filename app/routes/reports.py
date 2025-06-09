@@ -22,47 +22,36 @@ def check_access():
 @reports.route('/')
 @login_required
 def index():
-    # Año académico activo
+    # Obtener año académico activo
     active_year = AcademicYear.query.filter_by(is_active=True).first()
     
     if not active_year:
-        flash('No hay un año académico activo configurado', 'warning')
-        return render_template('reports/index.html', title='Reportes', active_year=None)
+        flash('No hay un año académico activo', 'warning')
+        return render_template('reports/index.html', 
+                             active_year=None, 
+                             periods=[], 
+                             sections=[],
+                             academic_years=[],
+                             grades=[])
     
-    # Períodos del año activo
-    periods = Period.query.filter_by(academic_year_id=active_year.id).all()
+    # Obtener períodos del año activo
+    periods = active_year.periods.order_by(Period.start_date).all()
     
-    # Si es administrador, mostrar todos los grados y secciones
-    if current_user.is_admin():
-        grades = Grade.query.all()
-        sections = Section.query.all()
-    else:
-        # Si es profesor, mostrar solo sus asignaciones
-        teacher = Teacher.query.filter_by(user_id=current_user.id).first()
-        
-        if not teacher:
-            flash('No se encontró un perfil de profesor para este usuario', 'warning')
-            return redirect(url_for('auth.logout'))
-        
-        # Obtener secciones únicas de las asignaciones del profesor
-        assignments = TeacherAssignment.query.filter_by(
-            teacher_id=teacher.id,
-            academic_year_id=active_year.id
-        ).all()
-        
-        section_ids = set(a.section_id for a in assignments)
-        sections = Section.query.filter(Section.id.in_(section_ids)).all()
-        
-        # Obtener grados únicos de esas secciones
-        grade_ids = set(s.grade_id for s in sections)
-        grades = Grade.query.filter(Grade.id.in_(grade_ids)).all()
+    # Obtener todas las secciones
+    sections = Section.query.join(Grade).order_by(Grade.name, Section.name).all()
     
-    return render_template('reports/index.html', 
-                          title='Reportes',
-                          active_year=active_year,
-                          periods=periods,
-                          grades=grades,
-                          sections=sections)
+    # Obtener todos los años académicos para el filtro
+    academic_years = AcademicYear.query.order_by(AcademicYear.start_date.desc()).all()
+    
+    # Obtener todos los grados
+    grades = Grade.query.order_by(Grade.name).all()
+    
+    return render_template('reports/index.html',
+                         active_year=active_year,
+                         periods=periods,
+                         sections=sections,
+                         academic_years=academic_years,
+                         grades=grades)
 
 @reports.route('/section/<int:section_id>/period/<int:period_id>')
 @login_required
@@ -451,7 +440,7 @@ def export_student_pdf(student_id, period_id):
     # Título
     elements.append(Paragraph(f"Boleta de Calificaciones", title_style))
     elements.append(Paragraph(f"Estudiante: {student.first_name} {student.last_name}", subtitle_style))
-    elements.append(Paragraph(f"ID: {student.student_id}", normal_style))
+    elements.append(Paragraph(f"C.I: {student.student_id}", normal_style))
     elements.append(Paragraph(f"Grado: {student.section.grade.name} Sección: {student.section.name}", normal_style))
     elements.append(Paragraph(f"Período: {period.name}", normal_style))
     elements.append(Paragraph(" ", normal_style))  # Espacio

@@ -6,8 +6,11 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Boleta de Calificaciones</h1>
     <div>
+        <button id="refreshGrades" class="btn btn-info me-2">
+            <i class="fas fa-sync-alt"></i> Actualizar
+        </button>
         <a href="{{ url_for('reports.export_student_pdf', student_id=student.id, period_id=period.id) }}" class="btn btn-danger">
-            <i class="bi bi-file-earmark-pdf"></i> Exportar a PDF
+            <i class="fas fa-file-pdf"></i> Exportar a PDF
         </a>
     </div>
 </div>
@@ -28,84 +31,460 @@
             </div>
             <div class="col-md-4">
                 <p><strong>Período:</strong> {{ period.name }}</p>
+                <p><strong>Año Académico:</strong> {{ period.academic_year.name }}</p>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row">
-    {% for subject in subjects %}
-        <div class="col-md-6 mb-4">
-            <div class="card h-100">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">{{ subject.name }}</h5>
-                </div>
-                <div class="card-body">
-                    <table class="table table-bordered">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Tipo de Calificación</th>
-                                <th>Valor</th>
-                                <th>Peso</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% if subject.id in grades_data %}
-                                {% for grade_type_id, grade in grades_data[subject.id].items() %}
-                                    <tr>
-                                        <td>{{ grade.name }}</td>
-                                        <td class="text-center">{{ grade.value }}</td>
-                                        <td class="text-center">{{ grade.weight }}</td>
-                                    </tr>
-                                {% endfor %}
-                            {% else %}
-                                <tr>
-                                    <td colspan="3" class="text-center">No hay calificaciones registradas</td>
-                                </tr>
-                            {% endif %}
-                        </tbody>
-                        <tfoot class="table-secondary">
-                            <tr>
-                                <th>Calificación Final</th>
-                                <th colspan="2" class="text-center">
-                                    {% if subject.id in final_grades %}
-                                        <strong>{{ final_grades[subject.id] }}</strong>
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </th>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </div>
-        </div>
-    {% endfor %}
+<!-- Loading indicator -->
+<div id="loadingIndicator" class="text-center py-5">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Cargando calificaciones...</span>
+    </div>
+    <p class="mt-3 text-muted">Cargando calificaciones del estudiante...</p>
 </div>
 
-<div class="card mt-3">
+<!-- Error message -->
+<div id="errorMessage" class="alert alert-danger d-none">
+    <i class="fas fa-exclamation-triangle me-2"></i>
+    <span id="errorText">Error al cargar las calificaciones</span>
+</div>
+
+<!-- Grades content -->
+<div id="gradesContent" class="d-none">
+    <div class="row" id="subjectsContainer">
+        <!-- Las asignaturas se cargarán aquí dinámicamente -->
+    </div>
+</div>
+
+<!-- Summary card -->
+<div id="summaryCard" class="card mt-4 d-none">
     <div class="card-header bg-success text-white">
-        <h5 class="mb-0">Resumen</h5>
+        <h5 class="mb-0">Resumen del Período</h5>
     </div>
     <div class="card-body">
         <div class="row">
-            <div class="col-md-6">
-                <h4>Promedio General: 
-                    {% set total = 0 %}
-                    {% set count = 0 %}
-                    {% for subject_id, grade in final_grades.items() %}
-                        {% set total = total + grade %}
-                        {% set count = count + 1 %}
-                    {% endfor %}
-                    
-                    {% if count > 0 %}
-                        <strong>{{ (total / count) | round(2) }}</strong>
-                    {% else %}
-                        <strong>-</strong>
-                    {% endif %}
-                </h4>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-primary" id="totalSubjects">0</h4>
+                    <p class="mb-0">Asignaturas</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-success" id="passedSubjects">0</h4>
+                    <p class="mb-0">Aprobadas</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-danger" id="failedSubjects">0</h4>
+                    <p class="mb-0">Reprobadas</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-warning" id="overallAverage">-</h4>
+                    <p class="mb-0">Promedio General</p>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Empty state -->
+<div id="emptyState" class="alert alert-info d-none">
+    <i class="fas fa-info-circle me-2"></i>
+    No hay calificaciones registradas para este estudiante en el período seleccionado.
+</div>
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .evaluation-row {
+        border-bottom: 1px solid #e9ecef;
+        padding: 8px 0;
+    }
+    
+    .evaluation-row:last-child {
+        border-bottom: none;
+    }
+    
+    .grade-badge {
+        min-width: 50px;
+        font-weight: 600;
+    }
+    
+    .weight-badge {
+        min-width: 40px;
+        font-size: 0.8rem;
+    }
+    
+    .final-grade {
+        font-size: 1.2rem;
+        font-weight: 700;
+        padding: 10px 15px;
+        border-radius: 8px;
+    }
+    
+    .subject-card {
+        transition: transform 0.2s ease-in-out;
+        border: 1px solid #dee2e6;
+    }
+    
+    .subject-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .progress-thin {
+        height: 8px;
+    }
+    
+    .evaluation-name {
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .no-evaluations {
+        background-color: #f8f9fa;
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    const studentId = {{ student.id }};
+    const periodId = {{ period.id }};
+    const passingGrade = 10;
+    
+    let studentData = {};
+    let gradesData = {};
+    
+    console.log('Student ID:', studentId, 'Period ID:', periodId);
+    
+    // Función para cargar las calificaciones del estudiante
+    function loadStudentGrades() {
+        return $.get(`/admin/api/student/${studentId}/grades`)
+            .done(function(response) {
+                if (response.success) {
+                    studentData = response.student;
+                    gradesData = response.grades;
+                    console.log('Calificaciones cargadas:', gradesData);
+                } else {
+                    throw new Error(response.error || 'Error al cargar calificaciones');
+                }
+            })
+            .fail(function(xhr) {
+                console.error('Error al cargar calificaciones:', xhr.responseText);
+                throw new Error('Error al cargar las calificaciones del estudiante');
+            });
+    }
+    
+    // Función para renderizar las calificaciones de una asignatura
+    function renderSubjectCard(subjectId, subjectData) {
+        // Convertir periodId a string para comparar con las claves del objeto
+        const periodIdStr = String(periodId);
+        const periodData = subjectData.periods && subjectData.periods[periodIdStr] ? subjectData.periods[periodIdStr] : null;
+        
+        console.log(`Renderizando asignatura ${subjectId}, buscando período ${periodIdStr}`, periodData);
+        
+        let cardHtml = `
+            <div class="col-md-6 mb-4">
+                <div class="card subject-card h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">${subjectData.subject_name}</h5>
+                        <small>${subjectData.subject_code}</small>
+                    </div>
+                    <div class="card-body">
+        `;
+        
+        if (periodData) {
+            const evaluations = periodData.evaluations || [];
+            
+            // Mostrar evaluaciones individuales
+            if (evaluations.length > 0) {
+                cardHtml += `
+                    <div class="mb-3">
+                        <h6 class="border-bottom pb-2 mb-3">Evaluaciones</h6>
+                `;
+                
+                evaluations.forEach(function(evaluation) {
+                    const gradeValue = evaluation.value || 0;
+                    const gradeBadgeClass = gradeValue >= passingGrade ? 'bg-success' : 'bg-danger';
+                    const weightProgress = evaluation.weight || 0;
+                    
+                    cardHtml += `
+                        <div class="evaluation-row mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="evaluation-name">${evaluation.evaluation_name || 'Sin nombre'}</span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge ${gradeBadgeClass} grade-badge">${gradeValue.toFixed(1)}</span>
+                                    <span class="badge bg-secondary weight-badge">${weightProgress}%</span>
+                                </div>
+                            </div>
+                            <div class="progress mb-1" style="height: 8px;">
+                                <div class="progress-bar bg-info" role="progressbar" 
+                                     style="width: ${weightProgress}%" 
+                                     aria-valuenow="${weightProgress}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                </div>
+                            </div>
+                            ${evaluation.comments ? `<small class="text-muted">${evaluation.comments}</small>` : ''}
+                            ${evaluation.date_recorded ? `<small class="text-muted d-block">Fecha: ${evaluation.date_recorded}</small>` : ''}
+                        </div>
+                    `;
+                });
+                
+                cardHtml += `</div>`;
+            } else {
+                cardHtml += `
+                    <div class="text-center py-3">
+                        <i class="fas fa-clipboard-list fa-2x mb-2 text-muted"></i>
+                        <p class="mb-0 text-muted">No hay evaluaciones registradas</p>
+                    </div>
+                `;
+            }
+            
+            // Mostrar calificación final
+            const finalGrade = periodData.final_grade;
+            const periodAverage = periodData.period_average;
+            
+            let displayGrade = null;
+            let gradeSource = '';
+            
+            if (finalGrade !== null && finalGrade !== undefined && finalGrade > 0) {
+                displayGrade = finalGrade;
+                gradeSource = 'Calificación Final';
+            } else if (periodAverage !== null && periodAverage !== undefined && periodAverage > 0) {
+                displayGrade = periodAverage;
+                gradeSource = 'Promedio Calculado';
+            }
+            
+            if (displayGrade !== null && displayGrade > 0) {
+                const finalBadgeClass = displayGrade >= passingGrade ? 'bg-success' : 'bg-danger';
+                cardHtml += `
+                    <div class="mt-3 pt-3 border-top">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <strong>${gradeSource}:</strong>
+                            <span class="badge ${finalBadgeClass} fs-6">${displayGrade.toFixed(1)}</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                cardHtml += `
+                    <div class="mt-3 pt-3 border-top">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <strong>Calificación Final:</strong>
+                            <span class="badge bg-secondary fs-6">Sin calificar</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+        } else {
+            cardHtml += `
+                <div class="text-center py-4">
+                    <i class="fas fa-exclamation-circle fa-2x mb-2 text-muted"></i>
+                    <p class="mb-0 text-muted">No hay calificaciones para este período</p>
+                </div>
+            `;
+        }
+        
+        cardHtml += `
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        return cardHtml;
+    }
+    
+    // Función para renderizar todas las asignaturas
+    function renderAllSubjects() {
+        let containerHtml = '';
+        
+        if (!gradesData || Object.keys(gradesData).length === 0) {
+            console.log('No hay datos de calificaciones para renderizar');
+            return;
+        }
+        
+        Object.keys(gradesData).forEach(function(subjectId) {
+            const subjectData = gradesData[subjectId];
+            if (subjectData) {
+                containerHtml += renderSubjectCard(subjectId, subjectData);
+            }
+        });
+        
+        $('#subjectsContainer').html(containerHtml);
+        console.log('Asignaturas renderizadas:', Object.keys(gradesData).length);
+    }
+    
+    // Función para calcular y mostrar el resumen
+    function renderSummary() {
+        let totalSubjects = 0;
+        let passedSubjects = 0;
+        let failedSubjects = 0;
+        let totalGrades = 0;
+        let gradeCount = 0;
+        
+        if (!gradesData || Object.keys(gradesData).length === 0) {
+            console.log('No hay datos para calcular resumen');
+            return;
+        }
+        
+        const periodIdStr = String(periodId);
+        
+        Object.keys(gradesData).forEach(function(subjectId) {
+            const subjectData = gradesData[subjectId];
+            if (!subjectData || !subjectData.periods) {
+                return;
+            }
+            
+            const periodData = subjectData.periods[periodIdStr];
+            
+            if (periodData) {
+                let gradeValue = null;
+                
+                if (periodData.final_grade !== null && periodData.final_grade !== undefined && periodData.final_grade > 0) {
+                    gradeValue = periodData.final_grade;
+                } else if (periodData.period_average !== null && periodData.period_average !== undefined && periodData.period_average > 0) {
+                    gradeValue = periodData.period_average;
+                }
+                
+                if (gradeValue !== null && gradeValue > 0) {
+                    totalSubjects++;
+                    totalGrades += gradeValue;
+                    gradeCount++;
+                    
+                    if (gradeValue >= passingGrade) {
+                        passedSubjects++;
+                    } else {
+                        failedSubjects++;
+                    }
+                }
+            }
+        });
+        
+        const overallAverage = gradeCount > 0 ? (totalGrades / gradeCount) : 0;
+        
+        $('#totalSubjects').text(totalSubjects);
+        $('#passedSubjects').text(passedSubjects);
+        $('#failedSubjects').text(failedSubjects);
+        $('#overallAverage').text(overallAverage > 0 ? overallAverage.toFixed(1) : '-');
+        
+        $('#summaryCard').removeClass('d-none');
+        console.log('Resumen calculado:', {totalSubjects, passedSubjects, failedSubjects, overallAverage});
+    }
+    
+    // Función para mostrar error
+    function showError(message) {
+        $('#loadingIndicator').addClass('d-none');
+        $('#gradesContent').addClass('d-none');
+        $('#summaryCard').addClass('d-none');
+        $('#emptyState').addClass('d-none');
+        $('#errorText').text(message);
+        $('#errorMessage').removeClass('d-none');
+    }
+    
+    // Función para mostrar estado vacío
+    function showEmptyState() {
+        $('#loadingIndicator').addClass('d-none');
+        $('#gradesContent').addClass('d-none');
+        $('#summaryCard').addClass('d-none');
+        $('#errorMessage').addClass('d-none');
+        $('#emptyState').removeClass('d-none');
+    }
+    
+    // Función para mostrar el contenido
+    function showContent() {
+        $('#loadingIndicator').addClass('d-none');
+        $('#errorMessage').addClass('d-none');
+        $('#emptyState').addClass('d-none');
+        $('#gradesContent').removeClass('d-none');
+    }
+    
+    // Función principal para cargar todos los datos
+    function loadAllData() {
+        $('#loadingIndicator').removeClass('d-none');
+        $('#gradesContent').addClass('d-none');
+        $('#errorMessage').addClass('d-none');
+        $('#emptyState').addClass('d-none');
+        $('#summaryCard').addClass('d-none');
+        
+        loadStudentGrades()
+            .then(function() {
+                console.log('Datos cargados. Verificando contenido...');
+                
+                if (!gradesData || Object.keys(gradesData).length === 0) {
+                    console.log('No hay datos de calificaciones');
+                    showEmptyState();
+                    return;
+                }
+                
+                // Verificar si hay calificaciones para el período actual
+                let hasGradesForPeriod = false;
+                const periodIdStr = String(periodId);
+                
+                Object.keys(gradesData).forEach(function(subjectId) {
+                    const subjectData = gradesData[subjectId];
+                    if (subjectData && subjectData.periods && subjectData.periods[periodIdStr]) {
+                        hasGradesForPeriod = true;
+                    }
+                });
+                
+                console.log('¿Hay calificaciones para el período?', hasGradesForPeriod);
+                
+                if (!hasGradesForPeriod) {
+                    showEmptyState();
+                    return;
+                }
+                
+                // Renderizar contenido
+                renderAllSubjects();
+                renderSummary();
+                showContent();
+                
+                console.log('Calificaciones del estudiante cargadas exitosamente');
+            })
+            .catch(function(error) {
+                console.error('Error al cargar datos:', error);
+                showError(error.message || 'Error al cargar las calificaciones del estudiante');
+            });
+    }
+    
+    // Event listener para el botón de actualizar
+    $('#refreshGrades').click(function() {
+        $(this).prop('disabled', true);
+        const originalText = $(this).html();
+        $(this).html('<i class="fas fa-spinner fa-spin"></i> Actualizando...');
+        
+        // Limpiar datos existentes
+        studentData = {};
+        gradesData = {};
+        
+        loadAllData();
+        
+        // Rehabilitar el botón después de 3 segundos
+        setTimeout(() => {
+            $(this).prop('disabled', false);
+            $(this).html(originalText);
+        }, 3000);
+    });
+    
+    // Cargar datos inicialmente
+    loadAllData();
+});
+</script>
+
 {% endblock %}
