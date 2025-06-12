@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, send_file, flash, redirect, url_for
+from flask import Blueprint, render_template, request, send_file, flash, jsonify, redirect, url_for
 from flask_login import login_required, current_user
 from app.models.users import User
 from app.models.academic import AcademicYear, Period, Grade, Section, Subject, Student, Teacher, TeacherAssignment
@@ -11,6 +11,10 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
+from app.services.multi_sheet_excel_generator import MultiSheetExcelGenerator
+import os
+import re
+from datetime import datetime
 
 reports = Blueprint('reports', __name__)
 
@@ -498,3 +502,243 @@ def export_student_pdf(student_id, period_id):
         download_name=filename,
         mimetype='application/pdf'
     )
+
+# Agregar esta nueva ruta
+@reports.route('/export/multi-sheet/section/<int:section_id>/period/<int:period_id>')
+@login_required
+def export_multi_sheet_section(section_id, period_id):
+    """Exporta un Excel con múltiples hojas, una por cada materia de la sección"""
+    
+    section = Section.query.get_or_404(section_id)
+    period = Period.query.get_or_404(period_id)
+    
+    # Verificar acceso
+    if not current_user.is_admin():
+        teacher = Teacher.query.filter_by(user_id=current_user.id).first()
+        if not teacher:
+            flash('No se encontró un perfil de profesor para este usuario', 'warning')
+            return redirect(url_for('auth.logout'))
+        
+        assignment = TeacherAssignment.query.filter_by(
+            teacher_id=teacher.id,
+            section_id=section_id,
+            academic_year_id=period.academic_year_id
+        ).first()
+        
+        if not assignment:
+            flash('No tienes permiso para exportar esta sección', 'danger')
+            return redirect(url_for('reports.index'))
+    
+    template_id = request.args.get('template_id')
+    
+    try:
+        # Generar Excel con múltiples hojas
+        wb = MultiSheetExcelGenerator.generate_section_multi_subject_report(
+            section_id, period.id, template_id
+        )
+        
+        # Crear archivo en memoria
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        filename = f'Reporte_Completo_{section.grade.name}{section.name}_{period.name}.xlsx'
+        
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        
+    except Exception as e:
+        flash(f'Error al generar reporte: {str(e)}', 'danger')
+        return redirect(url_for('reports.section_report', section_id=section_id, period_id=period_id))
+    
+# Agregar esta nueva ruta al final del archivo
+@reports.route('/export/template/<int:template_id>/section/<int:section_id>/period/<int:period_id>')
+@login_required
+def export_with_template(template_id, section_id, period_id):
+    """Exporta usando una plantilla con estilos preservados"""
+    
+    from app.models.templates import ExcelTemplate, TemplateCell
+    from app.services.template_mapper import TemplateMapper
+    from openpyxl import load_workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from io import BytesIO
+    import json
+    
+    # Verificar acceso (mismo código que otras funciones)
+    section = Section.query.get_or_404(section_id)
+    period = Period.query.get_or_404(period_id)
+    template = ExcelTemplate.query.get_or_404(template_id)
+    
+    if not current_user.is_admin():
+        teacher = Teacher.query.filter_by(user_id=current_user.id).first()
+        if not teacher:
+            flash('No se encontró un perfil de profesor para este usuario', 'warning')
+            return redirect(url_for('auth.logout'))
+        
+        assignment = TeacherAssignment.query.filter_by(
+            teacher_id=teacher.id,
+            section_id=section_id,
+            academic_year_id=period.academic_year_id
+        ).first()
+        
+        if not assignment:
+            flash('No tienes permiso para exportar esta sección', 'danger')
+            return redirect(url_for('reports.index'))
+    
+    # Cargar plantilla
+    if not template.file_path or not os.path.exists(template.file_path):
+        flash('Archivo de plantilla no encontrado', 'danger')
+        return redirect(url_for('reports.index'))
+    
+    wb = load_workbook(template.file_path)
+    ws = wb.active
+    
+    # Obtener estudiantes
+    students = Student.query.filter_by(
+        section_id=section_id,
+        is_active=True
+    ).order_by(Student.last_name).all()
+    
+    # Obtener configuración de celdas
+    template_cells = TemplateCell.query.filter_by(template_id=template_id).all()
+    
+    # Preparar contexto
+    context = {
+        'section': section,
+        'grade': section.grade,
+        'period': period,
+        'period_id': period_id,
+        'current_date': datetime.now().strftime('%d/%m/%Y')
+    }
+    
+    # Encontrar la fila donde empiezan los datos de estudiantes
+    data_start_row = None
+    for cell in template_cells:
+        if cell.cell_type == 'data':
+            row_num = int(re.search(r'\d+', cell.cell_address).group())
+            if data_start_row is None or row_num < data_start_row:
+                data_start_row = row_num
+    
+    if data_start_row is None:
+        data_start_row = 2  # Por defecto empezar en fila 2
+    
+    # Llenar datos de estudiantes
+    for student_index, student in enumerate(students):
+        current_row = data_start_row + student_index
+        
+        # Llenar cada celda de datos para este estudiante
+        for cell in template_cells:
+            if cell.cell_type == 'data':
+                # Calcular nueva posición
+                col_letter = re.search(r'[A-Z]+', cell.cell_address).group()
+                new_address = f"{col_letter}{current_row}"
+                
+                # Obtener valor
+                value = TemplateMapper.get_value_for_cell(cell.data_type, student, context)
+                
+                if value is not None:
+                    ws[new_address] = value
+                    
+                    # Aplicar estilo original si existe
+                    if cell.style_config:
+                        try:
+                            style_config = json.loads(cell.style_config)
+                            _apply_cell_style(ws[new_address], style_config)
+                        except:
+                            pass
+    
+    # Crear archivo en memoria
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    filename = f'Reporte_{template.name}_{section.grade.name}{section.name}_{period.name}.xlsx'
+    
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
+def _apply_cell_style(cell, style_config):
+    """Aplica estilo a una celda"""
+    from openpyxl.styles import Font, PatternFill, Alignment
+    
+    if 'font' in style_config:
+        font_config = style_config['font']
+        cell.font = Font(
+            name=font_config.get('name', 'Arial'),
+            size=font_config.get('size', 11),
+            bold=font_config.get('bold', False),
+            italic=font_config.get('italic', False)
+        )
+    
+    if 'fill' in style_config:
+        fill_config = style_config['fill']
+        cell.fill = PatternFill(
+            start_color=fill_config.get('color', 'FFFFFF'),
+            end_color=fill_config.get('color', 'FFFFFF'),
+            fill_type='solid'
+        )
+    
+    if 'alignment' in style_config:
+        align_config = style_config['alignment']
+        cell.alignment = Alignment(
+            horizontal=align_config.get('horizontal', 'left'),
+            vertical=align_config.get('vertical', 'top')
+        )
+
+# Agregar esta ruta también al final del archivo
+
+@reports.route('/templates')
+@login_required
+def templates_list():
+    """Lista las plantillas disponibles para generar reportes"""
+    
+    from app.models.templates import ExcelTemplate
+    
+    # Obtener año académico activo
+    active_year = AcademicYear.query.filter_by(is_active=True).first()
+    
+    if not active_year:
+        flash('No hay un año académico activo', 'warning')
+        return render_template('reports/templates.html', 
+                             active_year=None, 
+                             periods=[], 
+                             sections=[],
+                             templates=[])
+    
+    # Obtener datos necesarios
+    periods = active_year.periods.order_by(Period.start_date).all()
+    sections = Section.query.join(Grade).order_by(Grade.name, Section.name).all()
+    templates = ExcelTemplate.query.filter_by(is_active=True).all()
+    
+    return render_template('reports/templates.html',
+                         active_year=active_year,
+                         periods=periods,
+                         sections=sections,
+                         templates=templates)
+
+@reports.route('/template/preview/<int:template_id>')
+@login_required
+def template_preview(template_id):
+    """Vista previa de una plantilla"""
+    
+    from app.services.template_service import TemplateService
+    
+    try:
+        preview_data = TemplateService.generate_preview(template_id)
+        return jsonify({
+            'success': True,
+            'preview': preview_data
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })

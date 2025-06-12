@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Crear Nueva Plantilla Excel</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Nombre de la Plantilla *</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                            <div class="form-text">Nombre único para identificar la plantilla</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="template_type" class="form-label">Tipo de Plantilla *</label>
+                            <select class="form-control" id="template_type" name="template_type" required>
+                                <option value="">Seleccionar tipo...</option>
+                                <option value="section_report">Reporte de Sección</option>
+                                <option value="student_report">Reporte de Estudiante</option>
+                                <option value="grade_summary">Resumen de Calificaciones</option>
+                                <option value="attendance_report">Reporte de Asistencia</option>
+                                <option value="custom">Personalizado</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Descripción</label>
+                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                            <div class="form-text">Descripción opcional de la plantilla</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="template_file" class="form-label">Archivo Excel (.xlsx)</label>
+                            <input type="file" class="form-control" id="template_file" name="template_file" accept=".xlsx">
+                            <div class="form-text">
+                                Opcional: Sube un archivo Excel existente como base para la plantilla
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('templates.index') }}" class="btn btn-secondary me-md-2">Cancelar</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Crear Plantilla
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

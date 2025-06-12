@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            {% if result.success %}
+            <!-- Importación exitosa -->
+            <div class="card">
+                <div class="card-header bg-success text-white text-center">
+                    <h4><i class="fas fa-check-circle"></i> Importación Completada</h4>
+                </div>
+                <div class="card-body">
+                    <!-- Estadísticas de importación -->
+                    <div class="row text-center mb-4">
+                        <div class="col-md-3">
+                            <div class="border rounded p-3">
+                                <h3 class="text-success">{{ result.students_created }}</h3>
+                                <p class="mb-0">Estudiantes Creados</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3">
+                                <h3 class="text-info">{{ result.students_updated }}</h3>
+                                <p class="mb-0">Estudiantes Actualizados</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3">
+                                <h3 class="text-primary">{{ result.subjects_created }}</h3>
+                                <p class="mb-0">Materias Creadas</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3">
+                                <h3 class="text-warning">{{ result.grades_imported }}</h3>
+                                <p class="mb-0">Calificaciones Importadas</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Advertencias si las hay -->
+                    {% if result.warnings %}
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-exclamation-triangle"></i> Advertencias</h6>
+                        <ul class="mb-0">
+                            {% for warning in result.warnings %}
+                            <li>{{ warning }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <!-- Errores menores si los hay -->
+                    {% if result.errors %}
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle"></i> Errores Menores (No críticos)</h6>
+                        <ul class="mb-0">
+                            {% for error in result.errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <!-- Botones de acción -->
+                    <div class="text-center mt-4">
+                        <div class="btn-group" role="group">
+                            <a href="{{ url_for('data_import.index') }}" class="btn btn-outline-primary">
+                                <i class="fas fa-home"></i> Volver al Inicio
+                            </a>
+                            <a href="{{ url_for('data_import.upload') }}" class="btn btn-outline-success">
+                                <i class="fas fa-plus"></i> Nueva Importación
+                            </a>
+                            <a href="{{ url_for('reports.index') }}" class="btn btn-primary">
+                                <i class="fas fa-chart-bar"></i> Ver Reportes
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% else %}
+            <!-- Error en importación -->
+            <div class="card">
+                <div class="card-header bg-danger text-white text-center">
+                    <h4><i class="fas fa-exclamation-circle"></i> Error en la Importación</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger">
+                        <h6>Error Principal:</h6>
+                        <p class="mb-0">{{ result.error }}</p>
+                    </div>
+
+                    {% if result.errors %}
+                    <div class="alert alert-warning">
+                        <h6>Errores Adicionales:</h6>
+                        <ul class="mb-0">
+                            {% for error in result.errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <!-- Datos parciales si los hay -->
+                    {% if result.students_created > 0 or result.students_updated > 0 %}
+                    <div class="alert alert-info">
+                        <h6>Datos Procesados Parcialmente:</h6>
+                        <ul class="mb-0">
+                            {% if result.students_created > 0 %}
+                            <li>{{ result.students_created }} estudiantes fueron creados antes del error</li>
+                            {% endif %}
+                            {% if result.students_updated > 0 %}
+                            <li>{{ result.students_updated }} estudiantes fueron actualizados antes del error</li>
+                            {% endif %}
+                            {% if result.grades_imported > 0 %}
+                            <li>{{ result.grades_imported }} calificaciones fueron importadas antes del error</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <!-- Botones de acción -->
+                    <div class="text-center mt-4">
+                        <div class="btn-group" role="group">
+                            <a href="{{ url_for('data_import.upload') }}" class="btn btn-primary">
+                                <i class="fas fa-redo"></i> Intentar Nuevamente
+                            </a>
+                            <a href="{{ url_for('data_import.index') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-home"></i> Volver al Inicio
+                            </a>
+                            <a href="{{ url_for('data_import.download_template') }}" class="btn btn-outline-info">
+                                <i class="fas fa-download"></i> Descargar Plantilla
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Información adicional -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6><i class="fas fa-info-circle"></i> Información de la Importación</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Archivo:</strong> {{ result.filename }}</p>
+                            <p><strong>Sección:</strong> {{ result.section_name }}</p>
+                            <p><strong>Período:</strong> {{ result.period_name }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Fecha:</strong> {{ result.import_date.strftime('%d/%m/%Y %H:%M:%S') }}</p>
+                            <p><strong>Usuario:</strong> {{ current_user.username }}</p>
+                            <p><strong>Duración:</strong> {{ "%.2f"|format(result.duration) }} segundos</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

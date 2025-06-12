@@ -42,6 +42,7 @@ class Grade(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), nullable=False)
     level = db.Column(db.String(64), nullable=False)  # Primaria, Secundaria, etc.
+    description = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relaciones
@@ -56,6 +57,7 @@ class Section(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(10), nullable=False)  # A, B, C, etc.
     grade_id = db.Column(db.Integer, db.ForeignKey('grades.id'), nullable=False)
+    capacity = db.Column(db.Integer, default=30)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relaciones
@@ -77,6 +79,7 @@ class Subject(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     code = db.Column(db.String(20), nullable=False, unique=True)
+    description = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relaciones
@@ -117,20 +120,34 @@ class Student(db.Model):
 
 class Teacher(db.Model):
     __tablename__ = 'teachers'
-
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    first_name = db.Column(db.String(64), nullable=True)  # Para casos donde se crea automáticamente
+    last_name = db.Column(db.String(64), nullable=True)   # Para casos donde se crea automáticamente
+    employee_id = db.Column(db.String(20), unique=True, nullable=True)  # Para identificación
     specialization = db.Column(db.String(100))
     qualification = db.Column(db.String(100))
     phone = db.Column(db.String(20))
-    identification_number = db.Column(db.String(20), unique=True)  # Cédula
-    is_registered = db.Column(db.Boolean, default=False)  # Indica si el profesor ha completado su registro
+    identification_number = db.Column(db.String(20), unique=True)
+    is_registered = db.Column(db.Boolean, default=False)
+    hire_date = db.Column(db.Date, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relación con asignaciones
     assignments = db.relationship('TeacherAssignment', backref='teacher', lazy='dynamic')
     
     def __repr__(self):
+        if self.first_name and self.last_name:
+            return f'<Teacher {self.first_name} {self.last_name}>'
         return f'<Teacher {self.user.first_name} {self.user.last_name}>'
+    
+    # Método helper para obtener el nombre completo
+    def get_full_name(self):
+        if self.first_name and self.last_name:
+            return f'{self.first_name} {self.last_name}'
+        return f'{self.user.first_name} {self.user.last_name}'
+
 
 class TeacherAssignment(db.Model):
     __tablename__ = 'teacher_assignments'

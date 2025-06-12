@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>{{ template.name }}</h2>
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('templates.edit', id=template.id) }}" class="btn btn-outline-primary">
+                <i class="fas fa-edit"></i> Editar
+            </a>
+            {% if template.file_path %}
+            <a href="{{ url_for('templates.download', id=template.id) }}" class="btn btn-outline-success">
+                <i class="fas fa-download"></i> Descargar
+            </a>
+            <a href="{{ url_for('templates.preview', id=template.id) }}" class="btn btn-outline-info">
+                <i class="fas fa-eye"></i> Vista Previa
+            </a>
+            {% endif %}
+            <form method="POST" action="{{ url_for('templates.duplicate', id=template.id) }}" class="d-inline">
+                <button type="submit" class="btn btn-outline-secondary">
+                    <i class="fas fa-copy"></i> Duplicar
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Información General</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-3">Nombre:</dt>
+                        <dd class="col-sm-9">{{ template.name }}</dd>
+                        
+                        <dt class="col-sm-3">Tipo:</dt>
+                        <dd class="col-sm-9">
+                            <span class="badge badge-info">{{ template.template_type }}</span>
+                        </dd>
+                        
+                        <dt class="col-sm-3">Descripción:</dt>
+                        <dd class="col-sm-9">{{ template.description or 'Sin descripción' }}</dd>
+                        
+                        <dt class="col-sm-3">Creado:</dt>
+                        <dd class="col-sm-9">{{ template.created_at.strftime('%d/%m/%Y %H:%M') }}</dd>
+                        
+                        <dt class="col-sm-3">Creado por:</dt>
+                        <dd class="col-sm-9">{{ template.creator.first_name }} {{ template.creator.last_name }}</dd>
+                        
+                        <dt class="col-sm-3">Archivo:</dt>
+                        <dd class="col-sm-9">
+                            {% if template.file_path %}
+                                <i class="fas fa-file-excel text-success"></i> Disponible
+                            {% else %}
+                                <i class="fas fa-times text-danger"></i> No disponible
+                            {% endif %}
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+            
+            {% if cells %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Celdas Configuradas ({{ cells|length }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Celda</th>
+                                    <th>Tipo</th>
+                                    <th>Contenido</th>
+                                    <th>Valor por Defecto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cell in cells %}
+                                <tr>
+                                    <td><code>{{ cell.cell_address }}</code></td>
+                                    <td>
+                                        <span class="badge badge-{% if cell.cell_type == 'static' %}secondary{% elif cell.cell_type == 'dynamic' %}primary{% else %}warning{% endif %}">
+                                            {{ cell.cell_type }}
+                                        </span>
+                                    </td>
+                                    <td>{{ cell.content_type or '-' }}</td>
+                                    <td>{{ cell.default_value or '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if styles %}
+            <div class="card">
+                <div class="card-header">
+                    <h5>Estilos Configurados ({{ styles|length }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Rango</th>
+                                    <th>Ancho Columna</th>
+                                    <th>Alto Fila</th>
+                                    <th>Celdas Combinadas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for style in styles %}
+                                <tr>
+                                    <td><code>{{ style.range_address }}</code></td>
+                                    <td>{{ style.column_width or '-' }}</td>
+                                    <td>{{ style.row_height or '-' }}</td>
+                                    <td>
+                                        {% if style.merge_cells %}
+                                            <i class="fas fa-check text-success"></i>
+                                        {% else %}
+                                            <i class="fas fa-times text-muted"></i>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Acciones</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('templates.edit', id=template.id) }}" class="btn btn-primary">
+                            <i class="fas fa-edit"></i> Editar Plantilla
+                        </a>
+                        
+                        {% if template.file_path %}
+                        <a href="{{ url_for('templates.download', id=template.id) }}" class="btn btn-success">
+                            <i class="fas fa-download"></i> Descargar Archivo
+                        </a>
+                        
+                        <a href="{{ url_for('templates.preview', id=template.id) }}" class="btn btn-info">
+                            <i class="fas fa-eye"></i> Vista Previa
+                        </a>
+                        {% endif %}
+                        
+                        <form method="POST" action="{{ url_for('templates.duplicate', id=template.id) }}">
+                            <button type="submit" class="btn btn-outline-secondary w-100">
+                                <i class="fas fa-copy"></i> Duplicar Plantilla
+                            </button>
+                        </form>
+                        
+                        <hr>
+                        
+                        <form method="POST" action="{{ url_for('templates.delete', id=template.id) }}" 
+                              onsubmit="return confirm('¿Estás seguro de que quieres eliminar esta plantilla?')">
+                            <button type="submit" class="btn btn-danger w-100">
+                                <i class="fas fa-trash"></i> Eliminar Plantilla
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6>Estadísticas</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li><strong>Celdas configuradas:</strong> {{ cells|length }}</li>
+                        <li><strong>Estilos aplicados:</strong> {{ styles|length }}</li>
+                        <li><strong>Estado:</strong> 
+                            {% if template.is_active %}
+                                <span class="text-success">Activa</span>
+                            {% else %}
+                                <span class="text-danger">Inactiva</span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <a href="{{ url_for('templates.index') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Volver a Plantillas
+        </a>
+    </div>
+</div>
+{% endblock %}

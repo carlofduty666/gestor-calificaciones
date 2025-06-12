@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-upload"></i> Importar Datos desde Excel</h2>
+        <a href="{{ url_for('data_import.index') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-file-upload"></i> Subir Archivo Excel</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                        <!-- Selección de sección y período -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="section_id" class="form-label">Sección *</label>
+                                <select class="form-select" id="section_id" name="section_id" required>
+                                    <option value="">Seleccionar sección...</option>
+                                    {% for section in sections %}
+                                    <option value="{{ section.id }}">
+                                        {{ section.grade.name }}{{ section.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="period_id" class="form-label">Período *</label>
+                                <select class="form-select" id="period_id" name="period_id" required>
+                                    <option value="">Seleccionar período...</option>
+                                    {% for period in periods %}
+                                    <option value="{{ period.id }}">{{ period.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Subida de archivo -->
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Archivo Excel *</label>
+                            <input type="file" class="form-control" id="file" name="file" 
+                                   accept=".xlsx,.xls" required>
+                            <div class="form-text">
+                                Formatos permitidos: .xlsx, .xls (máximo 16MB)
+                            </div>
+                        </div>
+
+                        <!-- Información del archivo -->
+                        <div id="fileInfo" class="alert alert-info" style="display: none;">
+                            <h6><i class="fas fa-info-circle"></i> Información del archivo:</h6>
+                            <div id="fileDetails"></div>
+                        </div>
+
+                        <!-- Botones -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="button" class="btn btn-outline-primary" id="validateBtn" disabled>
+                                <i class="fas fa-check-circle"></i> Validar Archivo
+                            </button>
+                            <button type="submit" class="btn btn-primary" id="uploadBtn" disabled>
+                                <i class="fas fa-upload"></i> Subir y Continuar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <!-- Ayuda -->
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="fas fa-question-circle"></i> Formato del Archivo</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small">El archivo Excel debe tener la siguiente estructura:</p>
+                    <ul class="small">
+                        <li><strong>Columna A:</strong> ID del estudiante</li>
+                        <li><strong>Columna B:</strong> Apellidos</li>
+                        <li><strong>Columna C:</strong> Nombres</li>
+                        <li><strong>Columnas D en adelante:</strong> Calificaciones por materia</li>
+                    </ul>
+                    <hr>
+                    <div class="d-grid">
+                        <a href="{{ url_for('data_import.download_template') }}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-download"></i> Descargar Plantilla
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ejemplo visual -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6><i class="fas fa-table"></i> Ejemplo</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Apellidos</th>
+                                    <th>Nombres</th>
+                                    <th>Mat.</th>
+                                    <th>Esp.</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>001</td>
+                                    <td>García</td>
+                                    <td>Juan</td>
+                                    <td>85</td>
+                                    <td>90</td>
+                                </tr>
+                                <tr>
+                                    <td>002</td>
+                                    <td>López</td>
+                                    <td>María</td>
+                                    <td>92</td>
+                                    <td>88</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('file');
+    const sectionSelect = document.getElementById('section_id');
+    const periodSelect = document.getElementById('period_id');
+    const validateBtn = document.getElementById('validateBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileDetails = document.getElementById('fileDetails');
+
+    function checkFormValidity() {
+        const isValid = fileInput.files.length > 0 && 
+                       sectionSelect.value && 
+                       periodSelect.value;
+        
+        validateBtn.disabled = !isValid;
+        uploadBtn.disabled = !isValid;
+    }
+
+    fileInput.addEventListener('change', function() {
+        checkFormValidity();
+        
+        if (this.files.length > 0) {
+            const file = this.files[0];
+            const fileSize = (file.size / 1024 / 1024).toFixed(2);
+            
+            fileDetails.innerHTML = `
+                <p class="mb-1"><strong>Nombre:</strong> ${file.name}</p>
+                <p class="mb-1"><strong>Tamaño:</strong> ${fileSize} MB</p>
+                <p class="mb-0"><strong>Tipo:</strong> ${file.type}</p>
+            `;
+            
+            fileInfo.style.display = 'block';
+            
+            // Validar tamaño
+            if (file.size > 16 * 1024 * 1024) {
+                alert('El archivo es demasiado grande. Máximo 16MB permitido.');
+                this.value = '';
+                fileInfo.style.display = 'none';
+                checkFormValidity();
+            }
+        } else {
+            fileInfo.style.display = 'none';
+        }
+    });
+
+    sectionSelect.addEventListener('change', checkFormValidity);
+    periodSelect.addEventListener('change', checkFormValidity);
+
+    validateBtn.addEventListener('click', function() {
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Validando...';
+        
+        fetch('/import/api/validate-file', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Archivo válido. Puede proceder con la importación.');
+            } else {
+                alert('Error en el archivo: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error al validar: ' + error.message);
+        })
+        .finally(() => {
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-check-circle"></i> Validar Archivo';
+        });
+    });
+
+    // Prevenir envío si no es válido
+    document.getElementById('uploadForm').addEventListener('submit', function(e) {
+        if (!sectionSelect.value || !periodSelect.value || !fileInput.files.length) {
+            e.preventDefault();
+            alert('Por favor complete todos los campos requeridos.');
+        }
+    });
+});
+</script>
+{% endblock %}

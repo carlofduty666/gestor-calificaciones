@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-eye"></i> Vista Previa de Importación</h2>
+        <div class="btn-group">
+            <a href="{{ url_for('data_import.upload') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <!-- Información de destino -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="alert alert-info">
+                <h6><i class="fas fa-info-circle"></i> Destino de Importación</h6>
+                <p class="mb-0">
+                    <strong>Sección:</strong> {{ section.grade.name }}{{ section.name }} | 
+                    <strong>Período:</strong> {{ period.name }} | 
+                    <strong>Archivo:</strong> {{ filename }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {% if preview_data.success %}
+    <!-- Estadísticas de vista previa -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-primary">{{ preview_data.total_students }}</h4>
+                    <p class="mb-0">Estudiantes</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-success">{{ preview_data.total_subjects }}</h4>
+                    <p class="mb-0">Materias</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-info">{{ preview_data.grade_statistics.total_grades }}</h4>
+                    <p class="mb-0">Calificaciones</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-warning">{{ "%.1f"|format(preview_data.grade_statistics.average_overall) }}</h4>
+                    <p class="mb-0">Promedio General</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Advertencias de validación -->
+    {% if preview_data.validation_warnings %}
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="alert alert-warning">
+                <h6><i class="fas fa-exclamation-triangle"></i> Advertencias de Validación</h6>
+                <ul class="mb-0">
+                    {% for warning in preview_data.validation_warnings %}
+                    <li>{{ warning }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Materias detectadas -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-book"></i> Materias Detectadas</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for subject in preview_data.subjects %}
+                        <div class="col-md-2 mb-2">
+                            <span class="badge bg-primary">{{ subject }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Muestra de estudiantes -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-users"></i> Muestra de Estudiantes (Primeros 5)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Apellidos</th>
+                                    <th>Nombres</th>
+                                    {% for subject in preview_data.subjects %}
+                                    <th>{{ subject }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student in preview_data.sample_students %}
+                                <tr>
+                                    <td>{{ student.student_id }}</td>
+                                    <td>{{ student.last_name }}</td>
+                                    <td>{{ student.first_name }}</td>
+                                    {% for subject in preview_data.subjects %}
+                                    <td>
+                                        {% if student.grades[subject] %}
+                                            {{ student.grades[subject] }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if preview_data.total_students > 5 %}
+                    <p class="text-muted small">
+                        Mostrando 5 de {{ preview_data.total_students }} estudiantes...
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas por materia -->
+    {% if preview_data.grade_statistics.subjects_stats %}
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-bar"></i> Estadísticas por Materia</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Materia</th>
+                                    <th>Calificaciones</th>
+                                    <th>Promedio</th>
+                                    <th>Mínima</th>
+                                    <th>Máxima</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for subject, stats in preview_data.grade_statistics.subjects_stats.items() %}
+                                <tr>
+                                    <td>{{ subject }}</td>
+                                    <td>{{ stats.count }}</td>
+                                    <td>{{ "%.1f"|format(stats.average) }}</td>
+                                    <td>{{ stats.min }}</td>
+                                    <td>{{ stats.max }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Botones de acción -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6>¿Desea proceder con la importación?</h6>
+                    <p class="text-muted">
+                        Esta acción importará {{ preview_data.total_students }} estudiantes y 
+                        {{ preview_data.grade_statistics.total_grades }} calificaciones.
+                    </p>
+                    
+                    <form method="POST" action="{{ url_for('data_import.process_import', filename=filename) }}" 
+                          id="importForm" class="d-inline">
+                        <input type="hidden" name="section_id" value="{{ section.id }}">
+                        <input type="hidden" name="period_id" value="{{ period.id }}">
+                        
+                        <div class="btn-group" role="group">
+                            <a href="{{ url_for('data_import.upload') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                            {% if preview_data.validation_warnings %}
+                            <a href="{{ url_for('data_import.mapping', filename=filename, section_id=section.id, period_id=period.id) }}" 
+                               class="btn btn-outline-warning">
+                                <i class="fas fa-cog"></i> Configurar Mapeo
+                            </a>
+                            {% endif %}
+                            <button type="submit" class="btn btn-success" id="confirmImportBtn">
+                                <i class="fas fa-check"></i> Confirmar Importación
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Error en vista previa -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert alert-danger">
+                <h6><i class="fas fa-exclamation-circle"></i> Error al procesar el archivo</h6>
+                <p class="mb-0">{{ preview_data.error }}</p>
+            </div>
+            <div class="text-center">
+                <a href="{{ url_for('data_import.upload') }}" class="btn btn-primary">
+                    <i class="fas fa-arrow-left"></i> Volver a Subir Archivo
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.getElementById('confirmImportBtn').addEventListener('click', function(e) {
+    e.preventDefault();
+    
+    if (confirm('¿Está seguro de que desea proceder con la importación? Esta acción no se puede deshacer.')) {
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importando...';
+        document.getElementById('importForm').submit();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Vista Previa: {{ template.name }}</h2>
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('templates.view', id=template.id) }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+            <a href="{{ url_for('templates.download', id=template.id) }}" class="btn btn-success">
+                <i class="fas fa-download"></i> Descargar Original
+            </a>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h5>Estructura de la Plantilla</h5>
+        </div>
+        <div class="card-body">
+            {% if preview_data %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm">
+                    {% for row_index, row_data in preview_data.items() %}
+                    <tr>
+                        {% for col_index, cell_value in row_data.items() %}
+                        <td style="min-width: 100px;">
+                            {% if cell_value %}
+                                {{ cell_value }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-exclamation-triangle fa-2x text-warning mb-3"></i>
+                <h5>No se pudo generar la vista previa</h5>
+                <p class="text-muted">El archivo de plantilla no está disponible o no se puede leer</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -42,5 +42,23 @@ def create_app(config_class=Config):
     
     from app.routes.reports import reports as reports_bp
     app.register_blueprint(reports_bp, url_prefix='/reports')
+
+    from app.routes.templates import templates as templates_bp
+    app.register_blueprint(templates_bp, url_prefix='/templates')
+    
+    from app.routes.data_import import data_import as data_import_bp
+    app.register_blueprint(data_import_bp, url_prefix='/import')
+    
+    # Crear directorios necesarios
+    import os
+    upload_dirs = [
+        'uploads',
+        'uploads/imports',
+        'uploads/exports'
+    ]
+    
+    for directory in upload_dirs:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
     
     return app

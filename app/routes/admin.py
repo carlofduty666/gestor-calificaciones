@@ -3039,8 +3039,6 @@ def api_academic_year_periods(year_id):
             'message': f'Error al obtener períodos: {str(e)}'
         }), 500
 
-# Agregar estas rutas al final de tu archivo admin.py
-
 @admin.route('/api/section/<int:section_id>/students')
 @login_required
 def api_section_students(section_id):

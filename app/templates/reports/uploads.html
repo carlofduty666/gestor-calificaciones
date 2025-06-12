@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2>Importar Datos desde Excel</h2>
+            <p class="text-muted">Sube un archivo Excel para importar estudiantes y calificaciones.</p>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Formulario de importación -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-upload me-2"></i>Subir Archivo Excel</h5>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('data_import.process_upload') }}" method="POST" enctype="multipart/form-data">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="academic_year_id" class="form-label">Año Académico</label>
+                                <select class="form-select" id="academic_year_id" name="academic_year_id" required>
+                                    <option value="">Seleccionar año académico...</option>
+                                    {% for year in academic_years %}
+                                    <option value="{{ year.id }}" {% if year.is_active %}selected{% endif %}>
+                                        {{ year.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="period_id" class="form-label">Período</label>
+                                <select class="form-select" id="period_id" name="period_id" required>
+                                    <option value="">Seleccionar período...</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="grade_id" class="form-label">Grado</label>
+                                <select class="form-select" id="grade_id" name="grade_id" required>
+                                    <option value="">Seleccionar grado...</option>
+                                    {% for grade in grades %}
+                                    <option value="{{ grade.id }}">{{ grade.name }} ({{ grade.level }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="section_id" class="form-label">Sección</label>
+                                <select class="form-select" id="section_id" name="section_id" required>
+                                    <option value="">Seleccionar sección...</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Archivo Excel (.xlsx)</label>
+                            <input type="file" class="form-control" id="file" name="file" accept=".xlsx,.xls" required>
+                            <div class="form-text">
+                                Formatos soportados: .xlsx, .xls. Tamaño máximo: 10MB
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-upload me-1"></i> Importar Datos
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Panel de plantillas -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="fas fa-download me-2"></i>Descargar Plantillas</h6>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Descarga una plantilla Excel con el formato correcto:</p>
+                    
+                    <div class="mb-3">
+                        <label for="template_grade" class="form-label">Seleccionar Grado:</label>
+                        <select id="template_grade" class="form-select">
+                            <option value="">Seleccionar grado...</option>
+                            {% for grade in grades %}
+                            <option value="{{ grade.id }}">{{ grade.name }} ({{ grade.level }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <button id="downloadTemplateBtn" class="btn btn-success w-100" disabled>
+                        <i class="fas fa-download me-1"></i> Descargar Plantilla
+                    </button>
+                    
+                    <hr>
+                    
+                    <div class="permanent-alert permanent-alert-info">
+                        <small>
+                            <strong>La plantilla incluye:</strong><br>
+                            • Formato para estudiantes<br>
+                            • Lista de secciones disponibles<br>
+                            • Lista de asignaturas<br>
+                            • Instrucciones de uso
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Script cargado');
+    
+    // Referencias a elementos
+    const academicYearSelect = document.getElementById('academic_year_id');
+    const periodSelect = document.getElementById('period_id');
+    const gradeSelect = document.getElementById('grade_id');
+    const sectionSelect = document.getElementById('section_id');
+    const templateGradeSelect = document.getElementById('template_grade');
+    const downloadBtn = document.getElementById('downloadTemplateBtn');
+    
+    // Cargar períodos cuando cambia el año académico
+    academicYearSelect.addEventListener('change', function() {
+        const yearId = this.value;
+        console.log('Año seleccionado:', yearId);
+        
+        // Limpiar y deshabilitar período
+        periodSelect.innerHTML = '<option value="">Cargando períodos...</option>';
+        periodSelect.disabled = true;
+        
+        // Limpiar sección también
+        sectionSelect.innerHTML = '<option value="">Seleccionar sección...</option>';
+        sectionSelect.disabled = true;
+        
+        if (yearId) {
+            fetch(`/admin/api/academic-year/${yearId}/periods`)
+                .then(response => {
+                    console.log('Respuesta recibida:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Datos de períodos:', data);
+                    
+                    periodSelect.innerHTML = '<option value="">Seleccionar período...</option>';
+                    
+                    if (data.success && data.periods && data.periods.length > 0) {
+                        data.periods.forEach(period => {
+                            const option = document.createElement('option');
+                            option.value = period.id;
+                            option.textContent = period.name;
+                            periodSelect.appendChild(option);
+                        });
+                        periodSelect.disabled = false;
+                    } else {
+                        periodSelect.innerHTML = '<option value="">No hay períodos disponibles</option>';
+                        console.log('No se encontraron períodos');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error cargando períodos:', error);
+                    periodSelect.innerHTML = '<option value="">Error cargando períodos</option>';
+                });
+        } else {
+            periodSelect.innerHTML = '<option value="">Seleccionar período...</option>';
+            periodSelect.disabled = true;
+        }
+    });
+
+    // Cargar secciones cuando cambia el grado
+    gradeSelect.addEventListener('change', function() {
+        const gradeId = this.value;
+        console.log('Grado seleccionado:', gradeId);
+        
+        sectionSelect.innerHTML = '<option value="">Cargando secciones...</option>';
+        sectionSelect.disabled = true;
+        
+        if (gradeId) {
+            fetch(`/admin/api/grade/${gradeId}/sections`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Datos de secciones:', data);
+                    
+                    sectionSelect.innerHTML = '<option value="">Seleccionar sección...</option>';
+                    
+                    // USAR EL FORMATO ACTUAL DE ADMIN (sin success)
+                    if (data.sections && data.sections.length > 0) {
+                        data.sections.forEach(section => {
+                            const option = document.createElement('option');
+                            option.value = section.id;
+                            option.textContent = section.name;
+                            sectionSelect.appendChild(option);
+                        });
+                        sectionSelect.disabled = false;
+                        console.log(`${data.sections.length} secciones cargadas`);
+                    } else {
+                        sectionSelect.innerHTML = '<option value="">No hay secciones disponibles</option>';
+                        console.log('No hay secciones para este grado');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error cargando secciones:', error);
+                    sectionSelect.innerHTML = '<option value="">Error cargando secciones</option>';
+                });
+        } else {
+            sectionSelect.innerHTML = '<option value="">Seleccionar sección...</option>';
+            sectionSelect.disabled = true;
+        }
+    });
+    
+    // Habilitar descarga de plantilla
+    if (templateGradeSelect && downloadBtn) {
+        templateGradeSelect.addEventListener('change', function() {
+            const gradeId = this.value;
+            downloadBtn.disabled = !gradeId;
+            
+            if (gradeId) {
+                downloadBtn.onclick = function() {
+                    window.location.href = `/import/download-template/${gradeId}`;
+                };
+            }
+        });
+    }
+    
+    // Cargar períodos del año activo al inicio
+    const activeYear = academicYearSelect.value;
+    if (activeYear) {
+        console.log('Cargando períodos del año activo al inicio:', activeYear);
+        // Simular cambio para cargar períodos
+        academicYearSelect.dispatchEvent(new Event('change'));
+    }
+});
+</script>
+{% endblock %}
+

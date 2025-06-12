@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-cog"></i> Configurar Mapeo de Columnas</h2>
+        <a href="{{ url_for('data_import.preview', filename=filename, section_id=section.id, period_id=period.id) }}" 
+           class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver a Vista Previa
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-table"></i> Mapeo de Columnas</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('data_import.process_import', filename=filename) }}" id="mappingForm">
+                        <input type="hidden" name="section_id" value="{{ section.id }}">
+                        <input type="hidden" name="period_id" value="{{ period.id }}">
+                        <input type="hidden" name="use_custom_mapping" value="true">
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            Configure cómo se deben interpretar las columnas de su archivo Excel.
+                        </div>
+
+                        <!-- Columnas del sistema -->
+                        <h6>Columnas del Sistema</h6>
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <label class="form-label">ID del Estudiante *</label>
+                                <select class="form-select" name="student_id_column" required>
+                                    <option value="">Seleccionar columna...</option>
+                                    {% for col in structure_analysis.columns %}
+                                    <option value="{{ col.index }}" 
+                                            {% if col.name.lower() in ['id', 'student_id', 'cedula'] %}selected{% endif %}>
+                                        {{ col.name }} (Columna {{ col.letter }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Apellidos *</label>
+                                <select class="form-select" name="last_name_column" required>
+                                    <option value="">Seleccionar columna...</option>
+                                    {% for col in structure_analysis.columns %}
+                                    <option value="{{ col.index }}" 
+                                            {% if col.name.lower() in ['apellidos', 'last_name', 'surname'] %}selected{% endif %}>
+                                        {{ col.name }} (Columna {{ col.letter }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Nombres *</label>
+                                <select class="form-select" name="first_name_column" required>
+                                    <option value="">Seleccionar columna...</option>
+                                    {% for col in structure_analysis.columns %}
+                                    <option value="{{ col.index }}" 
+                                            {% if col.name.lower() in ['nombres', 'first_name', 'name'] %}selected{% endif %}>
+                                        {{ col.name }} (Columna {{ col.letter }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Columnas de materias -->
+                        <h6>Columnas de Materias</h6>
+                        <div id="subjectMappings">
+                            {% for col in structure_analysis.columns %}
+                            {% if col.index >= 3 %}  <!-- Asumiendo que las primeras 3 son datos del estudiante -->
+                            <div class="row mb-2">
+                                <div class="col-md-4">
+                                    <input type="text" class="form-control" 
+                                           value="{{ col.name }}" readonly>
+                                </div>
+                                <div class="col-md-4">
+                                    <select class="form-select" name="subject_mapping[{{ col.index }}]">
+                                        <option value="">No mapear</option>
+                                        <option value="new_subject" selected>Crear nueva materia: {{ col.name }}</option>
+                                        <!-- Aquí podrías agregar materias existentes -->
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="text" class="form-control" 
+                                           name="subject_name[{{ col.index }}]" 
+                                           value="{{ col.name }}" 
+                                           placeholder="Nombre de la materia">
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+
+                        <!-- Configuraciones adicionales -->
+                        <hr>
+                        <h6>Configuraciones Adicionales</h6>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" 
+                                           id="skipFirstRow" name="skip_first_row" checked>
+                                    <label class="form-check-label" for="skipFirstRow">
+                                        Omitir primera fila (encabezados)
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" 
+                                           id="updateExisting" name="update_existing" checked>
+                                    <label class="form-check-label" for="updateExisting">
+                                        Actualizar estudiantes existentes
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Valor para celdas vacías</label>
+                                <input type="text" class="form-control" 
+                                       name="empty_cell_value" value="" 
+                                       placeholder="Dejar vacío o especificar valor">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Hoja de Excel</label>
+                                <select class="form-select" name="sheet_name">
+                                    {% for sheet in structure_analysis.sheets %}
+                                    <option value="{{ sheet.name }}" 
+                                            {% if sheet.is_active %}selected{% endif %}>
+                                        {{ sheet.name }} ({{ sheet.rows }} filas)
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Botones -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="button" class="btn btn-outline-primary" id="previewMappingBtn">
+                                <i class="fas fa-eye"></i> Vista Previa
+                            </button>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-check"></i> Aplicar y Continuar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <!-- Vista previa de datos -->
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="fas fa-table"></i> Vista Previa de Datos</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    {% for col in structure_analysis.columns[:6] %}  <!-- Mostrar solo primeras 6 columnas -->
+                                    <th class="small">{{ col.letter }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in structure_analysis.sample_data[:5] %}  <!-- Mostrar solo primeras 5 filas -->
+                                <tr>
+                                    {% for cell in row[:6] %}
+                                    <td class="small">{{ cell if cell else '-' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="small text-muted">
+                        Mostrando muestra de {{ structure_analysis.total_rows }} filas
+                    </p>
+                </div>
+            </div>
+
+            <!-- Ayuda -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6><i class="fas fa-question-circle"></i> Ayuda</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="small">
+                        <li>Las columnas marcadas con * son obligatorias</li>
+                        <li>Puede crear nuevas materias o mapear a existentes</li>
+                        <li>Las celdas vacías se pueden manejar con un valor por defecto</li>
+                        <li>Use "Vista Previa" para verificar el mapeo antes de importar</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('previewMappingBtn').addEventListener('click', function() {
+    // Aquí podrías implementar una vista previa del mapeo
+    alert('Funcionalidad de vista previa en desarrollo');
+});
+
+// Validar formulario antes de enviar
+document.getElementById('mappingForm').addEventListener('submit', function(e) {
+    const studentIdCol = document.querySelector('[name="student_id_column"]').value;
+    const lastNameCol = document.querySelector('[name="last_name_column"]').value;
+    const firstNameCol = document.querySelector('[name="first_name_column"]').value;
+    
+    if (!studentIdCol || !lastNameCol || !firstNameCol) {
+        e.preventDefault();
+        alert('Por favor seleccione las columnas obligatorias: ID, Apellidos y Nombres');
+        return;
+    }
+    
+    // Verificar que no se repitan columnas
+    const selectedCols = [studentIdCol, lastNameCol, firstNameCol];
+    const uniqueCols = [...new Set(selectedCols)];
+    
+    if (selectedCols.length !== uniqueCols.length) {
+        e.preventDefault();
+        alert('No puede mapear la misma columna a múltiples campos');
+        return;
+    }
+    
+    if (confirm('¿Está seguro de proceder con este mapeo?')) {
+        this.querySelector('[type="submit"]').disabled = true;
+        this.querySelector('[type="submit"]').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+    } else {
+        e.preventDefault();
+    }
+});
+</script>
+{% endblock %}
