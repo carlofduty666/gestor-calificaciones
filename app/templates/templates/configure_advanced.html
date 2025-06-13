@@ -1,0 +1,761 @@
+{% extends "base.html" %}
+
+{% block title %}Configurar Plantilla - {{ template.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1>Configurar Plantilla</h1>
+                    <p class="text-muted mb-0">{{ template.name }} - {{ template.description }}</p>
+                </div>
+                <div>
+                    <button id="generatePreview" class="btn btn-info me-2">
+                        <i class="fas fa-eye"></i> Vista Previa
+                    </button>
+                    <button id="saveConfig" class="btn btn-success">
+                        <i class="fas fa-save"></i> Guardar Configuración
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs de navegación -->
+    <ul class="nav nav-tabs" id="configTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="individual-tab" data-bs-toggle="tab" 
+                    data-bs-target="#individual-pane" type="button" role="tab">
+                <i class="fas fa-th-large"></i> Celdas Individuales
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="ranges-tab" data-bs-toggle="tab" 
+                    data-bs-target="#ranges-pane" type="button" role="tab">
+                <i class="fas fa-table"></i> Rangos Iterativos
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="preview-tab" data-bs-toggle="tab" 
+                    data-bs-target="#preview-pane" type="button" role="tab">
+                <i class="fas fa-eye"></i> Vista Previa
+            </button>
+        </li>
+    </ul>
+
+    <!-- Contenido de las tabs -->
+    <div class="tab-content" id="configTabsContent">
+        
+        <!-- Tab 1: Celdas Individuales -->
+        <div class="tab-pane fade show active" id="individual-pane" role="tabpanel">
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-th-large me-2"></i>Configuración de Celdas Individuales
+                    </h5>
+                    <small class="text-muted">Configure qué tipo de dato se mostrará en cada celda</small>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive" style="max-height: 500px;">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-dark sticky-top">
+                                <tr>
+                                    <th>Celda</th>
+                                    <th>Valor Actual</th>
+                                    <th>Tipo de Dato</th>
+                                    <th>Vista Previa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="individualCellsTable">
+                                {% for cell in individual_cells %}
+                                <tr data-cell-address="{{ cell.cell_address }}">
+                                    <td class="fw-bold">{{ cell.cell_address }}</td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {% if cell.default_value %}
+                                                {{ cell.default_value[:40] }}
+                                                {% if cell.default_value|length > 40 %}...{% endif %}
+                                            {% endif %}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <select class="form-select form-select-sm individual-data-type">
+                                            {% for key, description in individual_data_types.items() %}
+                                                <option value="{{ key }}" 
+                                                        {% if cell.data_type == key %}selected{% endif %}>
+                                                    {{ description }}
+                                                </option>
+                                            {% endfor %}
+                                            <option value="custom_text" 
+                                                    {% if cell.data_type == 'custom_text' %}selected{% endif %}>
+                                                Texto personalizado
+                                            </option>
+                                        </select>
+                                        
+                                        <!-- Input para texto personalizado -->
+                                        <div class="custom-text-input mt-1" 
+                                             data-cell="{{ cell.cell_address }}"
+                                             style="display: {% if cell.data_type == 'custom_text' %}block{% else %}none{% endif %};">
+                                            <input type="text" class="form-control form-control-sm custom-text-field" 
+                                                   placeholder="Escriba su texto personalizado..."
+                                                   value="">
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <small class="preview-text text-info">
+                                            <!-- Se llenará dinámicamente -->
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Rangos Iterativos -->
+        <div class="tab-pane fade" id="ranges-pane" role="tabpanel">
+            <div class="card mt-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0">
+                            <i class="fas fa-table me-2"></i>Rangos Iterativos
+                        </h5>
+                        <small class="text-muted">Configure rangos para listas de estudiantes, materias, etc.</small>
+                    </div>
+                    <button id="addRange" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus"></i> Agregar Rango
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="rangesContainer">
+                        <!-- Los rangos configurados aparecerán aquí -->
+                    </div>
+                    
+                    <div id="noRangesMessage" class="text-center py-4">
+                        <i class="fas fa-table fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No hay rangos configurados</h5>
+                        <p class="text-muted">Haga clic en "Agregar Rango" para configurar listas de datos</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Vista Previa -->
+        <div class="tab-pane fade" id="preview-pane" role="tabpanel">
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-eye me-2"></i>Vista Previa de la Configuración
+                    </h5>
+                    <small class="text-muted">Vea cómo se verá el reporte con datos de ejemplo</small>
+                </div>
+                <div class="card-body">
+                    <div id="previewContent">
+                        <div class="text-center py-4">
+                            <i class="fas fa-eye fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Vista Previa</h5>
+                            <p class="text-muted">Haga clic en "Vista Previa" para generar una simulación</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para configurar rango -->
+<div class="modal fade" id="rangeConfigModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Configurar Rango Iterativo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="rangeConfigForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Nombre del Rango:</label>
+                                <input type="text" id="rangeName" class="form-control" 
+                                       placeholder="Ej: Lista de Estudiantes" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Tipo de Datos:</label>
+                                <select id="rangeType" class="form-select" required>
+                                    <option value="">Seleccione...</option>
+                                    {% for key, description in range_types.items() %}
+                                        <option value="{{ key }}">{{ description }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Celda de Inicio:</label>
+                                <input type="text" id="startCell" class="form-control" 
+                                       placeholder="Ej: A12" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Celda Final (opcional):</label>
+                                <input type="text" id="endCell" class="form-control" 
+                                       placeholder="Ej: F50">
+                                <small class="form-text text-muted">Dejar vacío para rango abierto</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Mapeo de Columnas:</label>
+                        <div id="columnMapping">
+                            <p class="text-muted">Seleccione un tipo de datos primero</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Ejemplo:</label>
+                        <div id="rangeExample" class="border rounded p-3 bg-light">
+                            <p class="text-muted mb-0">Configure el rango para ver el ejemplo</p>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="saveRange" class="btn btn-primary">Guardar Rango</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const saveConfigBtn = document.getElementById('saveConfig');
+    const addRangeBtn = document.getElementById('addRange');
+    const rangeModal = new bootstrap.Modal(document.getElementById('rangeConfigModal'));
+    const rangesContainer = document.getElementById('rangesContainer');
+    const noRangesMessage = document.getElementById('noRangesMessage');
+    
+    let ranges = [];
+    
+    // Mapeos disponibles para cada tipo
+    const mappings = {
+        'students': {{ student_mappings | tojson }},
+        'subjects': {{ subject_mappings | tojson }},
+        'grades_by_student': {{ grade_mappings | tojson }}
+    };
+    
+    // Ejemplos para cada tipo
+    const examples = {
+        'students': {
+            'numero': '1, 2, 3, 4...',
+            'cedula': '12345678, 87654321...',
+            'apellido': 'García, López, Martínez...',
+            'nombre': 'Juan, María, Carlos...',
+            'nombre_completo': 'García Juan, López María...'
+        },
+        'subjects': {
+            'numero': '1, 2, 3, 4...',
+            'codigo': 'MAT, ESP, ING...',
+            'nombre': 'Matemáticas, Español, Inglés...',
+            'profesor': 'Prof. García, Prof. López...'
+        },
+        'grades_by_student': {
+            'numero': '1, 2, 3, 4...',
+            'cedula': '12345678, 87654321...',
+            'nombre': 'Juan García, María López...',
+            'materia_1': '18.5, 16.0, 19.2...',
+            'promedio': '17.8, 15.5, 18.9...'
+        }
+    };
+    
+    // Actualizar vista previa de celdas individuales
+    document.querySelectorAll('.individual-data-type').forEach(select => {
+        select.addEventListener('change', function() {
+            const row = this.closest('tr');
+            const previewCell = row.querySelector('.preview-text');
+            const dataType = this.value;
+            
+            const previews = {
+                'static': 'Sin cambios',
+                'custom_text': 'Texto personalizado',
+                'titulo_reporte': 'REPORTE DE CALIFICACIONES',
+                'nombre_institucion': 'U.E. Mi Institución',
+                'seccion': '1ro "A"',
+                'grado': '1er Año',
+                'periodo': '1er Lapso',
+                'fecha_actual': new Date().toLocaleDateString(),
+                'total_estudiantes': '25 estudiantes',
+                'promedio_seccion': '16.8',
+                'estudiantes_aprobados': '22 aprobados',
+                'estudiantes_reprobados': '3 reprobados'
+            };
+            
+            previewCell.textContent = previews[dataType] || 'Vista previa';
+        });
+        
+        // Trigger inicial
+        select.dispatchEvent(new Event('change'));
+    });
+
+    // Mostrar/ocultar campo de texto personalizado
+    document.querySelectorAll('.individual-data-type').forEach(select => {
+        select.addEventListener('change', function() {
+            const row = this.closest('tr');
+            const cellAddress = row.dataset.cellAddress;
+            const customTextDiv = document.querySelector(`[data-cell="${cellAddress}"].custom-text-input`);
+            const previewCell = row.querySelector('.preview-text');
+            
+            if (this.value === 'custom_text') {
+                customTextDiv.style.display = 'block';
+                previewCell.textContent = 'Texto personalizado';
+            } else {
+                customTextDiv.style.display = 'none';
+            }
+        });
+    });
+
+    // Actualizar vista previa cuando se escribe texto personalizado
+    document.querySelectorAll('.custom-text-field').forEach(input => {
+        input.addEventListener('input', function() {
+            const cellAddress = this.closest('.custom-text-input').dataset.cell;
+            const row = document.querySelector(`tr[data-cell-address="${cellAddress}"]`);
+            const previewCell = row.querySelector('.preview-text');
+            
+            previewCell.textContent = this.value || 'Texto personalizado';
+        });
+    });
+
+    // Abrir modal para agregar rango
+    addRangeBtn.addEventListener('click', function() {
+        document.getElementById('rangeConfigForm').reset();
+        updateColumnMapping();
+        rangeModal.show();
+    });
+
+    // Actualizar mapeo de columnas según el tipo seleccionado
+    document.getElementById('rangeType').addEventListener('change', updateColumnMapping);
+
+    function updateColumnMapping() {
+        const rangeType = document.getElementById('rangeType').value;
+        const mappingContainer = document.getElementById('columnMapping');
+        const exampleContainer = document.getElementById('rangeExample');
+        
+        const availableMappings = mappings[rangeType] || {};
+        
+        let mappingHtml = '<div class="row">';
+        let columnIndex = 0;
+        
+        Object.entries(availableMappings).forEach(([key, description]) => {
+            const colLetter = String.fromCharCode(65 + columnIndex); // A, B, C...
+            
+            mappingHtml += `
+                <div class="col-md-6 mb-2">
+                    <div class="form-check">
+                        <input class="form-check-input column-mapping" type="checkbox"
+                               value="${key}" id="mapping_${key}">
+                        <label class="form-check-label" for="mapping_${key}">
+                            <strong>Columna ${colLetter}:</strong> ${description}
+                        </label>
+                    </div>
+                </div>
+            `;
+            columnIndex++;
+        });
+        
+        mappingHtml += '</div>';
+        mappingContainer.innerHTML = mappingHtml;
+        
+        // Actualizar ejemplo
+        updateExample();
+        
+        // Agregar listeners para actualizar ejemplo
+        document.querySelectorAll('.column-mapping').forEach(checkbox => {
+            checkbox.addEventListener('change', updateExample);
+        });
+    }
+
+    function updateExample() {
+        const rangeType = document.getElementById('rangeType').value;
+        const startCell = document.getElementById('startCell').value || 'A12';
+        const selectedMappings = Array.from(document.querySelectorAll('.column-mapping:checked'))
+                                     .map(cb => cb.value);
+        
+        const exampleContainer = document.getElementById('rangeExample');
+        const rangeExamples = examples[rangeType] || {};
+        
+        if (selectedMappings.length === 0) {
+            exampleContainer.innerHTML = '<p class="text-muted">Seleccione al menos un tipo de dato</p>';
+            return;
+        }
+        
+        let exampleHtml = `<strong>Ejemplo desde ${startCell}:</strong><br><br>`;
+        exampleHtml += '<div class="table-responsive"><table class="table table-sm table-bordered">';
+        
+        // Header
+        exampleHtml += '<thead><tr>';
+        selectedMappings.forEach((mapping, index) => {
+            const colLetter = String.fromCharCode(65 + index);
+            exampleHtml += `<th>${colLetter}</th>`;
+        });
+        exampleHtml += '</tr></thead>';
+        
+        // Filas de ejemplo
+        exampleHtml += '<tbody>';
+        for (let row = 0; row < 3; row++) {
+            exampleHtml += '<tr>';
+            selectedMappings.forEach(mapping => {
+                const exampleValue = rangeExamples[mapping] || 'Dato';
+                const values = exampleValue.split(', ');
+                const value = values[row] || values[0];
+                exampleHtml += `<td>${value}</td>`;
+            });
+            exampleHtml += '</tr>';
+        }
+        exampleHtml += '<tr><td colspan="' + selectedMappings.length + '" class="text-center text-muted">...</td></tr>';
+        exampleHtml += '</tbody></table></div>';
+        
+        exampleContainer.innerHTML = exampleHtml;
+    }
+
+    // Guardar rango
+    document.getElementById('saveRange').addEventListener('click', function() {
+        const rangeName = document.getElementById('rangeName').value;
+        const rangeType = document.getElementById('rangeType').value;
+        const startCell = document.getElementById('startCell').value;
+        const endCell = document.getElementById('endCell').value;
+        const selectedMappings = Array.from(document.querySelectorAll('.column-mapping:checked'))
+                                     .map(cb => cb.value);
+        
+        if (!rangeName || !startCell || selectedMappings.length === 0) {
+            alert('Por favor complete todos los campos requeridos');
+            return;
+        }
+        
+        // Crear mapeo de columnas
+        const columnMapping = {};
+        selectedMappings.forEach((mapping, index) => {
+            const colLetter = String.fromCharCode(65 + index);
+            columnMapping[colLetter] = mapping;
+        });
+        
+        const newRange = {
+            name: rangeName,
+            type: rangeType,
+            start_cell: startCell,
+            end_cell: endCell,
+            mapping: columnMapping
+        };
+        
+        ranges.push(newRange);
+        addRangeToUI(newRange);
+        rangeModal.hide();
+        
+        // Ocultar mensaje de "no hay rangos"
+        noRangesMessage.style.display = 'none';
+    });
+
+    function addRangeToUI(range) {
+        const rangeHtml = `
+            <div class="range-config border rounded p-3 mb-3" data-range-name="${range.name}">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <h6 class="mb-1">${range.name}</h6>
+                        <small class="text-muted">${mappings[range.type] ? Object.values(mappings[range.type])[0] : range.type}</small>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger remove-range">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-4">
+                        <strong>Rango:</strong> ${range.start_cell}${range.end_cell ? ' - ' + range.end_cell : ' (abierto)'}
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Tipo:</strong> ${range.type}
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Columnas:</strong> ${Object.keys(range.mapping).length}
+                    </div>
+                </div>
+                
+                <div class="mt-2">
+                    <small class="text-muted">
+                        <strong>Mapeo:</strong>
+                        ${Object.entries(range.mapping).map(([col, type]) => `${col}=${type}`).join(', ')}
+                    </small>
+                </div>
+            </div>
+        `;
+        
+        rangesContainer.insertAdjacentHTML('beforeend', rangeHtml);
+        
+        // Agregar listener para eliminar
+        rangesContainer.querySelector(`[data-range-name="${range.name}"] .remove-range`)
+                      .addEventListener('click', function() {
+            if (confirm('¿Eliminar este rango?')) {
+                ranges = ranges.filter(r => r.name !== range.name);
+                this.closest('.range-config').remove();
+                
+                if (ranges.length === 0) {
+                    noRangesMessage.style.display = 'block';
+                }
+            }
+        });
+    }
+
+    // Guardar configuración completa
+    saveConfigBtn.addEventListener('click', function() {
+        const individualCells = [];
+        
+        // Recopilar celdas individuales
+        document.querySelectorAll('#individualCellsTable tr[data-cell-address]').forEach(row => {
+            const address = row.dataset.cellAddress;
+            const dataType = row.querySelector('.individual-data-type').value;
+            const customTextInput = row.querySelector('.custom-text-field');
+            
+            const cellConfig = {
+                address: address,
+                data_type: dataType
+            };
+            
+            // Si es texto personalizado, incluir el texto
+            if (dataType === 'custom_text' && customTextInput) {
+                cellConfig.custom_text = customTextInput.value;
+            }
+            
+            individualCells.push(cellConfig);
+        });
+        
+        const configData = {
+            individual_cells: individualCells,
+            ranges: ranges
+        };
+        
+        fetch(`/templates/save-range-configuration/{{ template.id }}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(configData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Configuración guardada exitosamente');
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al guardar la configuración');
+        });
+    });
+
+    // Generar vista previa
+    document.getElementById('generatePreview').addEventListener('click', function() {
+        const previewContent = document.getElementById('previewContent');
+        
+        // Mostrar loading
+        previewContent.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Generando vista previa...</span>
+                </div>
+                <p class="mt-2">Generando vista previa...</p>
+            </div>
+        `;
+        
+        // Recopilar configuración actual
+        const individualCells = [];
+        document.querySelectorAll('#individualCellsTable tr[data-cell-address]').forEach(row => {
+            const address = row.dataset.cellAddress;
+            const dataType = row.querySelector('.individual-data-type').value;
+            const customTextInput = row.querySelector('.custom-text-field');
+            
+            const cellConfig = {
+                address: address,
+                data_type: dataType
+            };
+            
+            if (dataType === 'custom_text' && customTextInput) {
+                cellConfig.custom_text = customTextInput.value;
+            }
+            
+            individualCells.push(cellConfig);
+        });
+        
+        const configData = {
+            individual_cells: individualCells,
+            ranges: ranges
+        };
+        
+        // Generar vista previa
+        fetch(`/templates/generate-preview/{{ template.id }}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(configData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayPreview(data.preview);
+            } else {
+                previewContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Error al generar vista previa: ${data.error}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            previewContent.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Error al generar vista previa
+                </div>
+            `;
+        });
+    });
+
+    function displayPreview(previewData) {
+        const previewContent = document.getElementById('previewContent');
+        
+        let previewHtml = `
+            <div class="mb-3">
+                <h6>Vista Previa de la Configuración</h6>
+                <small class="text-muted">Esta es una simulación de cómo se verán los datos inyectados</small>
+            </div>
+            <div class="table-responsive border rounded">
+                <table class="table table-sm table-bordered mb-0">
+        `;
+        
+        // Generar tabla de vista previa
+        const maxRow = Math.max(...Object.keys(previewData).map(k => parseInt(k)));
+        const maxCol = Math.max(...Object.values(previewData).flatMap(row =>
+            Object.keys(row).map(k => k.charCodeAt(0) - 64)
+        ));
+        
+        for (let row = 1; row <= Math.min(maxRow, 20); row++) {
+            previewHtml += '<tr>';
+            
+            for (let colNum = 1; colNum <= Math.min(maxCol, 10); colNum++) {
+                const colLetter = String.fromCharCode(64 + colNum);
+                const cellData = previewData[row] && previewData[row][colLetter];
+                
+                if (cellData) {
+                    let cellClass = '';
+                    let cellContent = cellData.value || '';
+                    
+                    // Aplicar colores según el tipo de dato
+                    switch (cellData.type) {
+                        case 'titulo_reporte':
+                        case 'nombre_institucion':
+                            cellClass = 'bg-primary text-white fw-bold';
+                            break;
+                        case 'seccion':
+                        case 'grado':
+                        case 'periodo':
+                            cellClass = 'bg-info text-white';
+                            break;
+                        case 'numero':
+                            cellClass = 'bg-secondary text-white text-center';
+                            break;
+                        case 'cedula':
+                            cellClass = 'bg-warning text-dark';
+                            break;
+                        case 'nombre':
+                        case 'apellido':
+                        case 'nombre_completo':
+                            cellClass = 'bg-success text-white';
+                            break;
+                        case 'nota_materia':
+                        case 'promedio':
+                            cellClass = 'bg-danger text-white text-center';
+                            break;
+                        case 'fecha_actual':
+                        case 'total_estudiantes':
+                            cellClass = 'bg-light border';
+                            break;
+                        default:
+                            cellClass = '';
+                    }
+                    
+                    previewHtml += `<td class="${cellClass}" title="Tipo: ${cellData.type}">${cellContent}</td>`;
+                } else {
+                    previewHtml += '<td></td>';
+                }
+            }
+            
+            previewHtml += '</tr>';
+        }
+        
+        previewHtml += `
+                </table>
+            </div>
+            <div class="mt-3">
+                <small class="text-muted">
+                    <strong>Leyenda:</strong>
+                    <span class="badge bg-primary">Títulos</span>
+                    <span class="badge bg-info">Info General</span>
+                    <span class="badge bg-secondary">Números</span>
+                    <span class="badge bg-warning text-dark">Cédulas</span>
+                    <span class="badge bg-success">Nombres</span>
+                    <span class="badge bg-danger">Calificaciones</span>
+                </small>
+            </div>
+            <div class="mt-3">
+                <button class="btn btn-success" onclick="downloadPreview()">
+                    <i class="fas fa-download"></i> Descargar Vista Previa
+                </button>
+            </div>
+        `;
+        
+        previewContent.innerHTML = previewHtml;
+    }
+
+    // Cargar rangos existentes
+    const existingRanges = {{ ranges_json | tojson }};
+    
+    if (existingRanges && existingRanges.length > 0) {
+        ranges = existingRanges;
+        
+        // Renderizar rangos existentes
+        existingRanges.forEach(range => {
+            addRangeToUI(range);
+        });
+        
+        // Ocultar mensaje de "no hay rangos"
+        noRangesMessage.style.display = 'none';
+    }
+    
+    // Función global para descargar vista previa
+    window.downloadPreview = function() {
+        window.open(`/templates/download-preview/{{ template.id }}`, '_blank');
+    };
+    
+    // Inicializar mapeo de columnas al cargar
+    updateColumnMapping();
+});
+</script>
+{% endblock %}

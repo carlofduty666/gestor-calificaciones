@@ -29,6 +29,9 @@
                         <button class="btn btn-outline-primary preview-template" data-template-id="{{ template.id }}">
                             <i class="fas fa-eye"></i> Vista Previa
                         </button>
+                        <a href="{{ url_for('templates.configure_template', template_id=template.id) }}" class="btn btn-outline-dark">
+                            <i class="fas fa-cog"></i> Configurar
+                        </a>
                         <a href="{{ url_for('templates.edit', id=template.id) }}" class="btn btn-outline-secondary">
                             <i class="fas fa-edit"></i> Editar
                         </a>

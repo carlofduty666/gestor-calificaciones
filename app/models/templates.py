@@ -19,6 +19,7 @@ class ExcelTemplate(db.Model):
     creator = db.relationship('User', backref='excel_templates')
     cells = db.relationship('TemplateCell', backref='template', cascade='all, delete-orphan')
     styles = db.relationship('TemplateStyle', backref='template', cascade='all, delete-orphan')
+    ranges = db.relationship('TemplateRange', backref='template', lazy=True, cascade='all, delete-orphan')
     
     def __repr__(self):
         return f'<ExcelTemplate {self.name}>'
@@ -41,6 +42,7 @@ class TemplateCell(db.Model):
     data_type = db.Column(db.String(50))                     # cedula, nombre, apellido, nota, etc.
     default_value = db.Column(db.Text)
     style_config = db.Column(db.Text)                        # JSON con estilos
+    extra_config = db.Column(db.Text)
     
     # Relación
     # template = db.relationship('ExcelTemplate', backref='cells')
@@ -62,3 +64,20 @@ class TemplateStyle(db.Model):
     
     def __repr__(self):
         return f'<TemplateStyle {self.range_address}>'
+    
+class TemplateRange(db.Model):
+    """Configuración de rangos de celdas para datos iterativos"""
+    __tablename__ = 'template_ranges'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    template_id = db.Column(db.Integer, db.ForeignKey('excel_templates.id'), nullable=False)
+    range_name = db.Column(db.String(50), nullable=False)  # ej: "lista_estudiantes"
+    start_cell = db.Column(db.String(10), nullable=False)  # ej: "A12"
+    end_cell = db.Column(db.String(10))                    # ej: "F50" (opcional)
+    range_type = db.Column(db.String(20), nullable=False)  # "students", "subjects", "static"
+    data_mapping = db.Column(db.Text)                      # JSON con mapeo de columnas
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<TemplateRange {self.range_name}: {self.start_cell}>'
+
