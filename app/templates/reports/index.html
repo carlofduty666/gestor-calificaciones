@@ -5,14 +5,93 @@
 {% block content %}
 <h1 class="mb-4">Reportes de Calificaciones</h1>
 
-
 {% if active_year %}
+    <!-- Sección de Plantillas -->
+    {% if templates %}
     <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">Año Académico: {{ active_year.name }}</h5>
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-file-excel me-2"></i>Reportes con Plantillas Personalizadas
+            </h5>
         </div>
         <div class="card-body">
-            <h5 class="card-title">Seleccione un período y una sección para generar reportes:</h5>
+            <p class="card-text">Genere reportes usando plantillas prediseñadas con formato profesional.</p>
+            
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label">Plantilla:</label>
+                        <select id="template-select" class="form-select">
+                            <option value="">Seleccione una plantilla</option>
+                            {% for template in templates %}
+                                <option value="{{ template.id }}" data-description="{{ template.description }}">
+                                    {{ template.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label">Período:</label>
+                        <select id="template-period-select" class="form-select" disabled>
+                            <option value="">Seleccione un período</option>
+                            {% for period in periods %}
+                                <option value="{{ period.id }}">{{ period.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label">Sección:</label>
+                        <select id="template-section-select" class="form-select" disabled>
+                            <option value="">Seleccione una sección</option>
+                            {% for section in sections %}
+                                <option value="{{ section.id }}">{{ section.grade.name }}{{ section.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label">Acciones:</label>
+                        <div class="d-grid gap-2">
+                            <button id="template-preview-btn" class="btn btn-info btn-sm" disabled>
+                                <i class="fas fa-eye"></i> Vista Previa
+                            </button>
+                            <button id="template-generate-btn" class="btn btn-success" disabled>
+                                <i class="fas fa-download"></i> Generar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Descripción de la plantilla seleccionada -->
+            <div id="template-description" class="mt-3" style="display: none;">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <span id="template-description-text"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Sección de Reportes Tradicionales -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-table me-2"></i>Reportes Tradicionales por Sección
+            </h5>
+        </div>
+        <div class="card-body">
+            <h5 class="card-title">Año Académico: {{ active_year.name }}</h5>
+            <p class="card-text">Genere reportes en formato estándar para secciones completas.</p>
             
             <div class="row">
                 <div class="col-md-4">
@@ -42,10 +121,18 @@
                 <div class="col-md-4">
                     <div class="mb-3">
                         <label class="form-label">Acciones:</label>
-                        <div>
+                        <div class="d-grid gap-2">
                             <button id="view-report-btn" class="btn btn-primary" disabled>
-                                <i class="bi bi-file-earmark-text"></i> Ver Reporte
+                                <i class="fas fa-file-earmark-text"></i> Ver Reporte
                             </button>
+                            <div class="btn-group" role="group">
+                                <button id="export-excel-btn" class="btn btn-success btn-sm" disabled>
+                                    <i class="fas fa-file-excel"></i> Excel
+                                </button>
+                                <button id="export-pdf-btn" class="btn btn-danger btn-sm" disabled>
+                                    <i class="fas fa-file-pdf"></i> PDF
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -53,9 +140,12 @@
         </div>
     </div>
     
+    <!-- Sección de Reportes Individuales -->
     <div class="card">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">Reportes Individuales</h5>
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">
+                <i class="fas fa-user-graduate me-2"></i>Reportes Individuales de Estudiantes
+            </h5>
         </div>
         <div class="card-body">
             <h5 class="card-title">Buscar estudiante:</h5>
@@ -94,7 +184,7 @@
             
             <!-- Buscador -->
             <div class="row mb-4">
-                <div class="col-md-8">
+                <div class="col-md-6">
                     <label class="form-label">Buscar estudiante:</label>
                     <div class="input-group">
                         <span class="input-group-text">
@@ -111,7 +201,7 @@
                     </div>
                 </div>
                 
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Período para el reporte:</label>
                     <select id="student-period-select" class="form-select">
                         <option value="">Seleccione un período</option>
@@ -120,9 +210,18 @@
                         {% endfor %}
                     </select>
                 </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">Plantilla (opcional):</label>
+                    <select id="student-template-select" class="form-select">
+                        <option value="">Reporte estándar</option>
+                        {% for template in templates %}
+                            <option value="{{ template.id }}">{{ template.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
 
-            
             <!-- Lista de estudiantes encontrados -->
             <div id="students-results" class="mb-4" style="display: none;">
                 <h6 class="border-bottom pb-2 mb-3">
@@ -170,6 +269,32 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal de Vista Previa de Plantilla -->
+    <div class="modal fade" id="templatePreviewModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-eye me-2"></i>Vista Previa de Plantilla
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="template-preview-content">
+                        <!-- El contenido de la vista previa se cargará aquí -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-success" id="generate-from-preview">
+                        <i class="fas fa-download"></i> Generar Reporte
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 {% else %}
     <div class="permanent-alert permanent-alert-warning">
         <i class="bi bi-exclamation-triangle"></i> No hay un año académico activo. Contacte al administrador.
@@ -180,18 +305,284 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Elementos del DOM
+        // === VARIABLES GLOBALES ===
+        const templateSelect = document.getElementById('template-select');
+        const templatePeriodSelect = document.getElementById('template-period-select');
+        const templateSectionSelect = document.getElementById('template-section-select');
+        const templatePreviewBtn = document.getElementById('template-preview-btn');
+        const templateGenerateBtn = document.getElementById('template-generate-btn');
+        const templateDescription = document.getElementById('template-description');
+        const templateDescriptionText = document.getElementById('template-description-text');
+        
+        // Elementos tradicionales
         const periodSelect = document.getElementById('period-select');
         const sectionSelect = document.getElementById('section-select');
         const viewReportBtn = document.getElementById('view-report-btn');
+        const exportExcelBtn = document.getElementById('export-excel-btn');
+        const exportPdfBtn = document.getElementById('export-pdf-btn');
         
-        // Elementos del buscador de estudiantes
+        // Modal de vista previa
+        const templatePreviewModal = new bootstrap.Modal(document.getElementById('templatePreviewModal'));
+        const templatePreviewContent = document.getElementById('template-preview-content');
+        const generateFromPreviewBtn = document.getElementById('generate-from-preview');
+        
+        // === FUNCIONES PARA PLANTILLAS ===
+        
+        // Mostrar descripción de plantilla
+        templateSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            
+            if (this.value) {
+                templatePeriodSelect.disabled = false;
+                templateDescriptionText.textContent = selectedOption.dataset.description || 'Sin descripción';
+                templateDescription.style.display = 'block';
+            } else {
+                templatePeriodSelect.disabled = true;
+                templateSectionSelect.disabled = true;
+                templatePreviewBtn.disabled = true;
+                templateGenerateBtn.disabled = true;
+                templateDescription.style.display = 'none';
+            }
+            
+            checkTemplateFormComplete();
+        });
+        
+        // Habilitar sección cuando se selecciona período
+        templatePeriodSelect.addEventListener('change', function() {
+            if (this.value) {
+                templateSectionSelect.disabled = false;
+            } else {
+                templateSectionSelect.disabled = true;
+                templateSectionSelect.value = '';
+            }
+            checkTemplateFormComplete();
+        });
+        
+        // Verificar formulario completo
+        templateSectionSelect.addEventListener('change', checkTemplateFormComplete);
+        
+        function checkTemplateFormComplete() {
+            const isComplete = templateSelect.value && templatePeriodSelect.value && templateSectionSelect.value;
+            templatePreviewBtn.disabled = !isComplete;
+            templateGenerateBtn.disabled = !isComplete;
+        }
+        
+        // Vista previa de plantilla
+        templatePreviewBtn.addEventListener('click', function() {
+            const templateId = templateSelect.value;
+            
+            if (!templateId) return;
+            
+            templatePreviewContent.innerHTML = `
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando vista previa...</span>
+                    </div>
+                    <p class="mt-2">Generando vista previa...</p>
+                </div>
+            `;
+            
+            templatePreviewModal.show();
+            
+            fetch(`/reports/template-preview/${templateId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayTemplatePreview(data.preview, data.template_name);
+                    } else {
+                        templatePreviewContent.innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                Error: ${data.error}
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    templatePreviewContent.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Error al cargar vista previa
+                        </div>
+                    `;
+                });
+        });
+        
+        // Generar reporte con plantilla
+        templateGenerateBtn.addEventListener('click', generateTemplateReport);
+        generateFromPreviewBtn.addEventListener('click', generateTemplateReport);
+        
+        function generateTemplateReport() {
+            const templateId = templateSelect.value;
+            const periodId = templatePeriodSelect.value;
+            const sectionId = templateSectionSelect.value;
+            
+            if (templateId && periodId && sectionId) {
+                const url = `/reports/generate-with-template/${templateId}?section_id=${sectionId}&period_id=${periodId}`;
+                window.open(url, '_blank');
+                templatePreviewModal.hide();
+            }
+        }
+        
+        function displayTemplatePreview(previewData, templateName) {
+            let previewHtml = `
+                <div class="mb-3">
+                    <h6>Vista Previa: ${templateName}</h6>
+                    <small class="text-muted">Los datos mostrados son ejemplos. El reporte final contendrá los datos reales.</small>
+                </div>
+                <div class="table-responsive border rounded" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-sm table-bordered mb-0">
+            `;
+            
+            // Encontrar dimensiones máximas
+            const maxRow = Math.max(...Object.keys(previewData).map(k => parseInt(k)));
+            const maxCol = Math.max(...Object.values(previewData).flatMap(row =>
+                Object.keys(row).map(k => k.charCodeAt(0) - 64)
+            ));
+            
+            // Generar tabla
+            for (let row = 1; row <= Math.min(maxRow, 25); row++) {
+                previewHtml += '<tr>';
+                
+                for (let colNum = 1; colNum <= Math.min(maxCol, 15); colNum++) {
+                    const colLetter = String.fromCharCode(64 + colNum);
+                    const cellData = previewData[row] && previewData[row][colLetter];
+                    
+                    if (cellData) {
+                        let cellClass = '';
+                        let cellContent = cellData.value || '';
+                        
+                        // Aplicar colores según el tipo de dato
+                        switch (cellData.type) {
+                            case 'titulo_reporte':
+                            case 'nombre_institucion':
+                                cellClass = 'bg-primary text-white fw-bold text-center';
+                                break;
+                            case 'seccion':
+                            case 'grado':
+                            case 'periodo':
+                                cellClass = 'bg-info text-white fw-semibold';
+                                break;
+                            case 'numero':
+                                cellClass = 'bg-secondary text-white text-center';
+                                break;
+                            case 'cedula':
+                                cellClass = 'bg-warning text-dark fw-semibold';
+                                break;
+                            case 'nombre':
+                            case 'apellido':
+                            case 'nombre_completo':
+                            case 'estudiante_nombre':
+                                cellClass = 'bg-success text-white';
+                                break;
+                            case 'nota_materia':
+                            case 'promedio':
+                            case 'estudiante_promedio':
+                                cellClass = 'bg-danger text-white text-center fw-bold';
+                                break;
+                            case 'fecha_actual':
+                            case 'total_estudiantes':
+                            case 'promedio_seccion':
+                            case 'estudiantes_aprobados':
+                            case 'estudiantes_reprobados':
+                                cellClass = 'bg-light border fw-semibold';
+                                break;
+                            case 'custom_text':
+                                cellClass = 'bg-warning text-dark fst-italic';
+                                break;
+                            default:
+                                cellClass = '';
+                        }
+                        
+                        previewHtml += `<td class="${cellClass}" title="Tipo: ${cellData.type}">${cellContent}</td>`;
+                    } else {
+                        previewHtml += '<td class="bg-light"></td>';
+                    }
+                }
+                
+                previewHtml += '</tr>';
+            }
+            
+            previewHtml += `
+                    </table>
+                </div>
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <strong>Leyenda de colores:</strong><br>
+                        <span class="badge bg-primary me-1">Títulos principales</span>
+                        <span class="badge bg-info me-1">Información general</span>
+                        <span class="badge bg-secondary me-1">Números/índices</span>
+                        <span class="badge bg-warning text-dark me-1">Cédulas/IDs</span>
+                        <span class="badge bg-success me-1">Nombres</span>
+                        <span class="badge bg-danger me-1">Calificaciones</span>
+                        <span class="badge bg-light text-dark me-1">Estadísticas</span>
+                    </small>
+                </div>
+            `;
+            
+            templatePreviewContent.innerHTML = previewHtml;
+        }
+        
+        // === FUNCIONES PARA REPORTES TRADICIONALES ===
+        
+        // Habilitar selección de sección cuando se selecciona un período
+        periodSelect.addEventListener('change', function() {
+            if (this.value) {
+                sectionSelect.disabled = false;
+            } else {
+                sectionSelect.disabled = true;
+                sectionSelect.value = '';
+                viewReportBtn.disabled = true;
+                exportExcelBtn.disabled = true;
+                exportPdfBtn.disabled = true;
+            }
+        });
+        
+        // Habilitar botones cuando se selecciona una sección
+        sectionSelect.addEventListener('change', function() {
+            const isEnabled = !!this.value;
+            viewReportBtn.disabled = !isEnabled;
+            exportExcelBtn.disabled = !isEnabled;
+            exportPdfBtn.disabled = !isEnabled;
+        });
+        
+        // Redirigir a reporte de sección
+        viewReportBtn.addEventListener('click', function() {
+            const periodId = periodSelect.value;
+            const sectionId = sectionSelect.value;
+            if (periodId && sectionId) {
+                window.location.href = `/reports/section/${sectionId}/period/${periodId}`;
+            }
+        });
+        
+        // Exportar a Excel tradicional
+        exportExcelBtn.addEventListener('click', function() {
+            const periodId = periodSelect.value;
+            const sectionId = sectionSelect.value;
+            if (periodId && sectionId) {
+                window.open(`/reports/export/excel/section/${sectionId}/period/${periodId}`, '_blank');
+            }
+        });
+        
+        // Exportar a PDF tradicional
+        exportPdfBtn.addEventListener('click', function() {
+            const periodId = periodSelect.value;
+            const sectionId = sectionSelect.value;
+            if (periodId && sectionId) {
+                window.open(`/reports/export/pdf/section/${sectionId}/period/${periodId}`, '_blank');
+            }
+        });
+        
+        // === FUNCIONES PARA BÚSQUEDA DE ESTUDIANTES ===
+        
+        // Elementos del DOM para estudiantes
         const studentYearSelect = document.getElementById('student-year-select');
         const studentGradeSelect = document.getElementById('student-grade-select');
         const studentSectionSelect = document.getElementById('student-section-select');
         const studentSearchInput = document.getElementById('student-search-input');
         const clearSearchBtn = document.getElementById('clear-search');
         const studentPeriodSelect = document.getElementById('student-period-select');
+        const studentTemplateSelect = document.getElementById('student-template-select');
         const searchHelpText = document.getElementById('search-help-text');
         
         // Elementos de resultados
@@ -211,35 +602,6 @@
         
         // Timeout para búsqueda
         let searchTimeout;
-        
-        // === FUNCIONES PARA REPORTES DE SECCIÓN ===
-        
-        // Habilitar selección de sección cuando se selecciona un período
-        periodSelect.addEventListener('change', function() {
-            if (this.value) {
-                sectionSelect.disabled = false;
-            } else {
-                sectionSelect.disabled = true;
-                sectionSelect.value = '';
-                viewReportBtn.disabled = true;
-            }
-        });
-        
-        // Habilitar botón de reporte cuando se selecciona una sección
-        sectionSelect.addEventListener('change', function() {
-            viewReportBtn.disabled = !this.value;
-        });
-        
-        // Redirigir a reporte de sección
-        viewReportBtn.addEventListener('click', function() {
-            const periodId = periodSelect.value;
-            const sectionId = sectionSelect.value;
-            if (periodId && sectionId) {
-                window.location.href = `/reports/section/${sectionId}/period/${periodId}`;
-            }
-        });
-        
-        // === FUNCIONES PARA BÚSQUEDA DE ESTUDIANTES ===
         
         // Cargar secciones cuando se selecciona un grado
         studentGradeSelect.addEventListener('change', function() {
@@ -278,9 +640,7 @@
         studentSearchInput.addEventListener('input', function() {
             const value = this.value.trim();
             
-            // Simplificar la detección: si tiene principalmente números, es cédula
-            const cleanValue = value.replace(/[^\d]/g, ''); // Solo números
-            // Cambiar de 3 a 2 dígitos mínimos y ajustar el porcentaje
+            const cleanValue = value.replace(/[^\d]/g, '');
             const isLikelyCedula = cleanValue.length >= 2 && cleanValue.length >= value.length * 0.5;
             
             if (isLikelyCedula) {
@@ -320,7 +680,6 @@
             const sectionId = studentSectionSelect.value;
             const searchTerm = studentSearchInput.value.trim();
             
-            // Si no hay término de búsqueda y no hay filtros, mostrar mensaje inicial
             if (!searchTerm && !yearId && !gradeId && !sectionId) {
                 showInitialMessage();
                 return;
@@ -328,7 +687,6 @@
             
             showLoading();
             
-            // Construir parámetros de búsqueda
             const params = new URLSearchParams();
             if (yearId) params.append('year_id', yearId);
             if (gradeId) params.append('grade_id', gradeId);
@@ -360,13 +718,11 @@
                 return;
             }
             
-            // Calcular paginación
             const totalPages = Math.ceil(filteredStudents.length / studentsPerPage);
             const startIndex = (currentPage - 1) * studentsPerPage;
             const endIndex = startIndex + studentsPerPage;
             const studentsToShow = filteredStudents.slice(startIndex, endIndex);
             
-            // Renderizar lista de estudiantes
             let studentsHtml = '';
             studentsToShow.forEach(student => {
                 const age = student.age ? `(${student.age} años)` : '';
@@ -392,11 +748,17 @@
                                     ${student.birth_date ? `<br><small class="text-muted"><i class="fas fa-birthday-cake me-1"></i>${student.birth_date} ${age}</small>` : ''}
                                 </div>
                                 
-                                <div class="d-grid">
+                                <div class="d-grid gap-2">
                                     <button class="btn btn-sm btn-primary view-student-report" 
                                             data-student-id="${student.id}" 
                                             data-student-name="${student.first_name} ${student.last_name}">
                                         <i class="fas fa-file-alt me-1"></i>Ver Reporte
+                                    </button>
+                                    <button class="btn btn-sm btn-success generate-student-template" 
+                                            data-student-id="${student.id}" 
+                                            data-student-name="${student.first_name} ${student.last_name}"
+                                            style="display: none;">
+                                        <i class="fas fa-file-excel me-1"></i>Con Plantilla
                                     </button>
                                 </div>
                             </div>
@@ -408,18 +770,16 @@
             studentsList.innerHTML = studentsHtml;
             studentsCount.textContent = filteredStudents.length;
             
-            // Renderizar paginación
             renderPagination(totalPages);
-            
-            // Mostrar resultados
             showResults();
             
-            // Agregar event listeners a los botones de reporte
+            // Agregar event listeners a los botones
             document.querySelectorAll('.view-student-report').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const studentId = this.dataset.studentId;
                     const studentName = this.dataset.studentName;
                     const periodId = studentPeriodSelect.value;
+                    const templateId = studentTemplateSelect.value;
                     
                     if (!periodId) {
                         alert('Por favor seleccione un período para generar el reporte');
@@ -427,13 +787,35 @@
                         return;
                     }
                     
-                    // Confirmar antes de generar reporte
-                    if (confirm(`¿Generar reporte de ${studentName} para el período seleccionado?`)) {
-                        window.open(`/reports/student/${studentId}/period/${periodId}`, '_blank');
+                    if (templateId) {
+                        // Generar con plantilla
+                        if (confirm(`¿Generar reporte de ${studentName} usando plantilla personalizada?`)) {
+                            const url = `/reports/generate-with-template/${templateId}?student_id=${studentId}&period_id=${periodId}`;
+                            window.open(url, '_blank');
+                        }
+                    } else {
+                        // Generar reporte tradicional
+                        if (confirm(`¿Generar reporte tradicional de ${studentName}?`)) {
+                            window.open(`/reports/student/${studentId}/period/${periodId}`, '_blank');
+                        }
                     }
                 });
             });
+            
+            // Mostrar/ocultar botón de plantilla según selección
+            const hasTemplate = studentTemplateSelect.value;
+            document.querySelectorAll('.generate-student-template').forEach(btn => {
+                btn.style.display = hasTemplate ? 'block' : 'none';
+            });
         }
+        
+        // Actualizar botones cuando cambia la plantilla seleccionada
+        studentTemplateSelect.addEventListener('change', function() {
+            const hasTemplate = this.value;
+            document.querySelectorAll('.generate-student-template').forEach(btn => {
+                btn.style.display = hasTemplate ? 'block' : 'none';
+            });
+        });
         
         // Función para renderizar paginación
         function renderPagination(totalPages) {
@@ -608,6 +990,16 @@
         transform: translateY(-1px);
     }
     
+    .btn-success {
+        background: linear-gradient(45deg, #28a745, #1e7e34);
+        border: none;
+    }
+    
+    .btn-success:hover {
+        background: linear-gradient(45deg, #1e7e34, #155724);
+        transform: translateY(-1px);
+    }
+    
     .pagination .page-link {
         border-radius: 6px;
         margin: 0 2px;
@@ -629,14 +1021,88 @@
         height: 3rem;
     }
     
+    /* Estilos para la vista previa de plantillas */
+    .table-responsive {
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+    }
+    
+    .table-bordered td {
+        border: 1px solid #dee2e6;
+        padding: 8px;
+        font-size: 0.875rem;
+    }
+    
+    /* Colores para diferentes tipos de datos en vista previa */
+    .bg-primary {
+        background-color: #007bff !important;
+    }
+    
+    .bg-info {
+        background-color: #17a2b8 !important;
+    }
+    
+    .bg-success {
+        background-color: #28a745 !important;
+    }
+    
+    .bg-warning {
+        background-color: #ffc107 !important;
+    }
+    
+    .bg-danger {
+        background-color: #dc3545 !important;
+    }
+    
+    .bg-secondary {
+        background-color: #6c757d !important;
+    }
+    
+    /* Responsive */
     @media (max-width: 768px) {
-        .col-md-3, .col-md-4, .col-md-8 {
+        .col-md-3, .col-md-4, .col-md-6 {
             margin-bottom: 1rem;
         }
         
         .student-card {
             margin-bottom: 1rem;
         }
+        
+        .btn-group {
+            width: 100%;
+        }
+        
+        .btn-group .btn {
+            flex: 1;
+        }
+    }
+    
+    /* Animaciones */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .card {
+        animation: fadeIn 0.5s ease-out;
+    }
+    
+    /* Mejoras visuales */
+    .card-header.bg-success {
+        background: linear-gradient(45deg, #28a745, #20c997) !important;
+    }
+    
+    .card-header.bg-primary {
+        background: linear-gradient(45deg, #007bff, #6610f2) !important;
+    }
+    
+    .card-header.bg-warning {
+        background: linear-gradient(45deg, #ffc107, #fd7e14) !important;
+    }
+    
+    .badge {
+        font-size: 0.75rem;
+        padding: 0.375rem 0.75rem;
     }
 </style>
 {% endblock %}

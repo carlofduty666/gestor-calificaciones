@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 from app.models.users import User
 from app.models.academic import AcademicYear, Period, Grade, Section, Subject, Student, Teacher, TeacherAssignment
 from app.models.grades import GradeType, StudentGrade, FinalGrade
+from app.models.templates import ExcelTemplate, TemplateCell, TemplateRange  # NUEVO
 from app import db
 import pandas as pd
 from io import BytesIO
@@ -12,8 +13,11 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from app.services.multi_sheet_excel_generator import MultiSheetExcelGenerator
+from app.services.template_processor import TemplateProcessor
+from app.models.academic import TeacherAssignment
 import os
 import re
+import json
 from datetime import datetime
 
 reports = Blueprint('reports', __name__)
@@ -36,7 +40,8 @@ def index():
                              periods=[], 
                              sections=[],
                              academic_years=[],
-                             grades=[])
+                             grades=[],
+                             templates=[])  # NUEVO
     
     # Obtener períodos del año activo
     periods = active_year.periods.order_by(Period.start_date).all()
@@ -50,12 +55,103 @@ def index():
     # Obtener todos los grados
     grades = Grade.query.order_by(Grade.name).all()
     
+    # NUEVO: Obtener plantillas activas
+    templates = ExcelTemplate.query.filter_by(is_active=True).order_by(ExcelTemplate.name).all()
+    
     return render_template('reports/index.html',
                          active_year=active_year,
                          periods=periods,
                          sections=sections,
                          academic_years=academic_years,
-                         grades=grades)
+                         grades=grades,
+                         templates=templates)  # NUEVO
+
+# NUEVA RUTA: Generar reporte con plantilla
+@reports.route('/generate-with-template/<int:template_id>')
+@login_required
+def generate_with_template(template_id):
+    """Generar reporte usando una plantilla específica"""
+    
+    template = ExcelTemplate.query.get_or_404(template_id)
+    
+    # Obtener parámetros
+    section_id = request.args.get('section_id', type=int)
+    period_id = request.args.get('period_id', type=int)
+    student_id = request.args.get('student_id', type=int)
+    
+    if not section_id or not period_id:
+        flash('Debe seleccionar una sección y un período', 'danger')
+        return redirect(url_for('reports.index'))
+    
+    section = Section.query.get_or_404(section_id)
+    period = Period.query.get_or_404(period_id)
+    
+    # Verificar acceso
+    if not current_user.is_admin():
+        teacher = Teacher.query.filter_by(user_id=current_user.id).first()
+        
+        if not teacher:
+            flash('No se encontró un perfil de profesor para este usuario', 'warning')
+            return redirect(url_for('auth.logout'))
+        
+        assignment = TeacherAssignment.query.filter_by(
+            teacher_id=teacher.id,
+            section_id=section_id,
+            academic_year_id=period.academic_year_id
+        ).first()
+        
+        if not assignment:
+            flash('No tienes permiso para generar reportes de esta sección', 'danger')
+            return redirect(url_for('reports.index'))
+    
+    try:
+        # Usar el procesador de plantillas
+        processor = TemplateProcessor(template)
+        
+        if student_id:
+            # Reporte individual
+            student = Student.query.get_or_404(student_id)
+            excel_file = processor.generate_student_report(student, period)
+            filename = f'Reporte_{template.name}_{student.last_name}_{student.first_name}_{period.name}.xlsx'
+        else:
+            # Reporte de sección
+            excel_file = processor.generate_section_report(section, period)
+            filename = f'Reporte_{template.name}_{section.grade.name}{section.name}_{period.name}.xlsx'
+        
+        return send_file(
+            excel_file,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        
+    except Exception as e:
+        flash(f'Error al generar reporte: {str(e)}', 'danger')
+        return redirect(url_for('reports.index'))
+
+# NUEVA RUTA: Vista previa de plantilla
+@reports.route('/template-preview/<int:template_id>')
+@login_required
+def template_preview(template_id):
+    """Vista previa de una plantilla con datos de ejemplo"""
+    
+    template = ExcelTemplate.query.get_or_404(template_id)
+    
+    try:
+        processor = TemplateProcessor(template)
+        preview_data = processor.generate_preview()
+        
+        return jsonify({
+            'success': True,
+            'preview': preview_data,
+            'template_name': template.name
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
 
 @reports.route('/section/<int:section_id>/period/<int:period_id>')
 @login_required
@@ -202,6 +298,18 @@ def student_report(student_id, period_id):
 @reports.route('/export/excel/section/<int:section_id>/period/<int:period_id>')
 @login_required
 def export_section_excel(section_id, period_id):
+
+    """Exportar con opción de usar plantilla"""
+    
+    template_id = request.args.get('template_id', type=int)
+    
+    if template_id:
+        # Redirigir a la nueva función con plantilla
+        return redirect(url_for('reports.generate_with_template', 
+                              template_id=template_id,
+                              section_id=section_id,
+                              period_id=period_id))
+    
     section = Section.query.get_or_404(section_id)
     period = Period.query.get_or_404(period_id)
     
@@ -724,21 +832,21 @@ def templates_list():
                          sections=sections,
                          templates=templates)
 
-@reports.route('/template/preview/<int:template_id>')
-@login_required
-def template_preview(template_id):
-    """Vista previa de una plantilla"""
+# @reports.route('/template/preview/<int:template_id>')
+# @login_required
+# def template_preview(template_id):
+#     """Vista previa de una plantilla"""
     
-    from app.services.template_service import TemplateService
+#     from app.services.template_service import TemplateService
     
-    try:
-        preview_data = TemplateService.generate_preview(template_id)
-        return jsonify({
-            'success': True,
-            'preview': preview_data
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        })
+#     try:
+#         preview_data = TemplateService.generate_preview(template_id)
+#         return jsonify({
+#             'success': True,
+#             'preview': preview_data
+#         })
+#     except Exception as e:
+#         return jsonify({
+#             'success': False,
+#             'error': str(e)
+#         })
