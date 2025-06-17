@@ -948,4 +948,13 @@ body.auth-page .main-container {
     }
 }
 
+.preview-cell.selected {
+    background-color: #007bff !important;
+    color: white !important;
+    border: 2px solid #0056b3 !important;
+}
 
+.preview-cell:hover {
+    background-color: #e3f2fd;
+    cursor: pointer;
+}
