@@ -182,7 +182,7 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Nombre del Rango:</label>
-                                <input type="text" id="rangeName" class="form-control" 
+                                <input type="text" id="rangeName" class="form-control"
                                        placeholder="Ej: Lista de Estudiantes" required>
                             </div>
                         </div>
@@ -191,9 +191,9 @@
                                 <label class="form-label">Tipo de Datos:</label>
                                 <select id="rangeType" class="form-select" required>
                                     <option value="">Seleccione...</option>
-                                    {% for key, description in range_types.items() %}
-                                        <option value="{{ key }}">{{ description }}</option>
-                                    {% endfor %}
+                                    <option value="students">Estudiantes</option>
+                                    <option value="subjects">Materias</option>
+                                    <option value="grades">Calificaciones</option>
                                 </select>
                             </div>
                         </div>
@@ -203,25 +203,27 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Celda de Inicio:</label>
-                                <input type="text" id="startCell" class="form-control" 
+                                <input type="text" id="startCell" class="form-control"
                                        placeholder="Ej: A12" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Celda Final (opcional):</label>
-                                <input type="text" id="endCell" class="form-control" 
+                                <input type="text" id="endCell" class="form-control"
                                        placeholder="Ej: F50">
                                 <small class="form-text text-muted">Dejar vacío para rango abierto</small>
                             </div>
                         </div>
                     </div>
                     
+                    <!-- CAMBIO PRINCIPAL: Simplificar el mapeo -->
                     <div class="mb-3">
-                        <label class="form-label">Mapeo de Columnas:</label>
-                        <div id="columnMapping">
-                            <p class="text-muted">Seleccione un tipo de datos primero</p>
-                        </div>
+                        <label class="form-label">Tipo de Dato Específico:</label>
+                        <select id="specificDataType" class="form-select" required>
+                            <option value="">Seleccione primero el tipo de datos...</option>
+                        </select>
+                        <small class="form-text text-muted">Qué información específica mostrar en este rango</small>
                     </div>
                     
                     <div class="mb-3">
@@ -343,93 +345,82 @@ document.addEventListener('DOMContentLoaded', function() {
     // Abrir modal para agregar rango
     addRangeBtn.addEventListener('click', function() {
         document.getElementById('rangeConfigForm').reset();
-        updateColumnMapping();
         rangeModal.show();
     });
 
-    // Actualizar mapeo de columnas según el tipo seleccionado
-    document.getElementById('rangeType').addEventListener('change', updateColumnMapping);
-
-    function updateColumnMapping() {
-        const rangeType = document.getElementById('rangeType').value;
-        const mappingContainer = document.getElementById('columnMapping');
-        const exampleContainer = document.getElementById('rangeExample');
+    // Event listener para cambio de tipo de rango
+    document.getElementById('rangeType').addEventListener('change', function() {
+        const rangeType = this.value;
+        const specificDataType = document.getElementById('specificDataType');
         
-        const availableMappings = mappings[rangeType] || {};
+        specificDataType.innerHTML = '<option value="">Seleccione...</option>';
         
-        let mappingHtml = '<div class="row">';
-        let columnIndex = 0;
-        
-        Object.entries(availableMappings).forEach(([key, description]) => {
-            const colLetter = String.fromCharCode(65 + columnIndex); // A, B, C...
-            
-            mappingHtml += `
-                <div class="col-md-6 mb-2">
-                    <div class="form-check">
-                        <input class="form-check-input column-mapping" type="checkbox"
-                               value="${key}" id="mapping_${key}">
-                        <label class="form-check-label" for="mapping_${key}">
-                            <strong>Columna ${colLetter}:</strong> ${description}
-                        </label>
-                    </div>
-                </div>
+        if (rangeType === 'students') {
+            specificDataType.innerHTML = `
+                <option value="">Seleccione...</option>
+                <option value="cedula">Cédula del estudiante</option>
+                <option value="nombres">Nombres</option>
+                <option value="apellidos">Apellidos</option>
+                <option value="nombre_completo">Nombre completo</option>
+                <option value="numero_correlativo">Número correlativo</option>
             `;
-            columnIndex++;
-        });
+        } else if (rangeType === 'subjects') {
+            specificDataType.innerHTML = `
+                <option value="">Seleccione...</option>
+                <option value="codigo_materia">Código de materia</option>
+                <option value="nombre_materia">Nombre de materia</option>
+                <option value="descripcion_materia">Descripción</option>
+            `;
+        } else if (rangeType === 'grades') {
+            specificDataType.innerHTML = `
+                <option value="">Seleccione...</option>
+                <option value="nota_final">Nota final</option>
+                <option value="promedio">Promedio</option>
+            `;
+        }
         
-        mappingHtml += '</div>';
-        mappingContainer.innerHTML = mappingHtml;
-        
-        // Actualizar ejemplo
-        updateExample();
-        
-        // Agregar listeners para actualizar ejemplo
-        document.querySelectorAll('.column-mapping').forEach(checkbox => {
-            checkbox.addEventListener('change', updateExample);
-        });
-    }
+        updateRangeExample();
+    });
 
-    function updateExample() {
+    // Event listeners para actualizar ejemplo
+    document.getElementById('specificDataType').addEventListener('change', updateRangeExample);
+    document.getElementById('startCell').addEventListener('input', updateRangeExample);
+
+    function updateRangeExample() {
         const rangeType = document.getElementById('rangeType').value;
-        const startCell = document.getElementById('startCell').value || 'A12';
-        const selectedMappings = Array.from(document.querySelectorAll('.column-mapping:checked'))
-                                     .map(cb => cb.value);
+        const specificDataType = document.getElementById('specificDataType').value;
+        const startCell = document.getElementById('startCell').value;
+        const exampleDiv = document.getElementById('rangeExample');
         
-        const exampleContainer = document.getElementById('rangeExample');
-        const rangeExamples = examples[rangeType] || {};
-        
-        if (selectedMappings.length === 0) {
-            exampleContainer.innerHTML = '<p class="text-muted">Seleccione al menos un tipo de dato</p>';
+        if (!rangeType || !specificDataType || !startCell) {
+            exampleDiv.innerHTML = '<p class="text-muted mb-0">Complete los campos para ver el ejemplo</p>';
             return;
         }
         
-        let exampleHtml = `<strong>Ejemplo desde ${startCell}:</strong><br><br>`;
-        exampleHtml += '<div class="table-responsive"><table class="table table-sm table-bordered">';
-        
-        // Header
-        exampleHtml += '<thead><tr>';
-        selectedMappings.forEach((mapping, index) => {
-            const colLetter = String.fromCharCode(65 + index);
-            exampleHtml += `<th>${colLetter}</th>`;
-        });
-        exampleHtml += '</tr></thead>';
-        
-        // Filas de ejemplo
-        exampleHtml += '<tbody>';
-        for (let row = 0; row < 3; row++) {
-            exampleHtml += '<tr>';
-            selectedMappings.forEach(mapping => {
-                const exampleValue = rangeExamples[mapping] || 'Dato';
-                const values = exampleValue.split(', ');
-                const value = values[row] || values[0];
-                exampleHtml += `<td>${value}</td>`;
-            });
-            exampleHtml += '</tr>';
+        let exampleText = '';
+        if (specificDataType === 'cedula') {
+            exampleText = `${startCell}: 12345678<br>${getNextCell(startCell)}: 87654321<br>...`;
+        } else if (specificDataType === 'nombres') {
+            exampleText = `${startCell}: Juan<br>${getNextCell(startCell)}: María<br>...`;
+        } else if (specificDataType === 'apellidos') {
+            exampleText = `${startCell}: Pérez<br>${getNextCell(startCell)}: González<br>...`;
+        } else if (specificDataType === 'nombre_completo') {
+            exampleText = `${startCell}: Juan Pérez<br>${getNextCell(startCell)}: María González<br>...`;
+        } else if (specificDataType === 'numero_correlativo') {
+            exampleText = `${startCell}: 1<br>${getNextCell(startCell)}: 2<br>...`;
         }
-        exampleHtml += '<tr><td colspan="' + selectedMappings.length + '" class="text-center text-muted">...</td></tr>';
-        exampleHtml += '</tbody></table></div>';
         
-        exampleContainer.innerHTML = exampleHtml;
+        exampleDiv.innerHTML = `<small>${exampleText}</small>`;
+    }
+
+    function getNextCell(cellAddress) {
+        const match = cellAddress.match(/([A-Z]+)(\d+)/);
+        if (match) {
+            const col = match[1];
+            const row = parseInt(match[2]) + 1;
+            return col + row;
+        }
+        return cellAddress;
     }
 
     // Guardar rango
@@ -438,27 +429,19 @@ document.addEventListener('DOMContentLoaded', function() {
         const rangeType = document.getElementById('rangeType').value;
         const startCell = document.getElementById('startCell').value;
         const endCell = document.getElementById('endCell').value;
-        const selectedMappings = Array.from(document.querySelectorAll('.column-mapping:checked'))
-                                     .map(cb => cb.value);
+        const specificDataType = document.getElementById('specificDataType').value;
         
-        if (!rangeName || !startCell || selectedMappings.length === 0) {
+        if (!rangeName || !rangeType || !startCell || !specificDataType) {
             alert('Por favor complete todos los campos requeridos');
             return;
         }
         
-        // Crear mapeo de columnas
-        const columnMapping = {};
-        selectedMappings.forEach((mapping, index) => {
-            const colLetter = String.fromCharCode(65 + index);
-            columnMapping[colLetter] = mapping;
-        });
-        
         const newRange = {
             name: rangeName,
             type: rangeType,
-            start_cell: startCell,
-            end_cell: endCell,
-            mapping: columnMapping
+            start_cell: startCell.toUpperCase(),
+            end_cell: endCell ? endCell.toUpperCase() : '',
+            mapping: {"tipo": specificDataType}
         };
         
         ranges.push(newRange);
@@ -468,7 +451,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Ocultar mensaje de "no hay rangos"
         noRangesMessage.style.display = 'none';
     });
-
     function addRangeToUI(range) {
         const rangeHtml = `
             <div class="range-config border rounded p-3 mb-3" data-range-name="${range.name}">
@@ -754,8 +736,6 @@ document.addEventListener('DOMContentLoaded', function() {
         window.open(`/templates/download-preview/{{ template.id }}`, '_blank');
     };
     
-    // Inicializar mapeo de columnas al cargar
-    updateColumnMapping();
 });
 </script>
 {% endblock %}

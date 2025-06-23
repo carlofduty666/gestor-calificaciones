@@ -429,26 +429,49 @@ def save_range_configuration(template_id):
     
     try:
         data = request.json
+        print(f"=== DEBUG BACKEND COMPLETO ===")
+        print(f"Template ID: {template_id}")
+        print(f"Datos recibidos completos: {data}")
+        print(f"Claves en data: {list(data.keys())}")
         
         # Guardar celdas individuales
         if 'individual_cells' in data:
-            for cell_config in data['individual_cells']:
+            print(f"Individual cells: {len(data['individual_cells'])} encontradas")
+            
+            for i, cell_config in enumerate(data['individual_cells']):
+                print(f"Celda {i + 1}: {cell_config}")
+                
                 cell = TemplateCell.query.filter_by(
                     template_id=template_id,
                     cell_address=cell_config['address']
                 ).first()
                 
                 if cell:
+                    # print(f"  - Celda encontrada en BD: {cell.cell_address}")
                     cell.cell_type = 'static' if cell_config['data_type'] == 'static' else 'data'
                     cell.data_type = cell_config['data_type']
+                    
+                    if cell_config['data_type'] == 'custom_text':
+                        custom_text = cell_config.get('custom_text', '')
+                        cell.default_value = custom_text
+                        # print(f"  - Guardando texto personalizado: '{custom_text}'")
+                else:
+                    print(f"  - CELDA NO ENCONTRADA EN BD: {cell_config['address']}")
         
         # Guardar rangos
         if 'ranges' in data:
+            print(f"Ranges: {len(data['ranges'])} encontrados")
+            for i, range_data in enumerate(data['ranges']):
+                print(f"  Rango {i + 1}: {range_data}")
+            
             # Eliminar rangos existentes
+            existing_ranges = TemplateRange.query.filter_by(template_id=template_id).all()
+            print(f"Eliminando {len(existing_ranges)} rangos existentes")
             TemplateRange.query.filter_by(template_id=template_id).delete()
             
             # Crear nuevos rangos
             for range_config in data['ranges']:
+                print(f"Creando rango: {range_config}")
                 new_range = TemplateRange(
                     template_id=template_id,
                     range_name=range_config['name'],
@@ -458,8 +481,12 @@ def save_range_configuration(template_id):
                     data_mapping=json.dumps(range_config['mapping'])
                 )
                 db.session.add(new_range)
+                print(f"Rango '{range_config['name']}' agregado a la sesión")
+        else:
+            print("NO se encontró 'ranges' en los datos")
         
         db.session.commit()
+        print("=== GUARDADO EXITOSO ===")
         
         return jsonify({
             'success': True,
@@ -468,6 +495,9 @@ def save_range_configuration(template_id):
         
     except Exception as e:
         db.session.rollback()
+        print(f"ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)

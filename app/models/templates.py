@@ -40,6 +40,7 @@ class TemplateCell(db.Model):
     cell_address = db.Column(db.String(10), nullable=False)  # A1, B2, etc.
     cell_type = db.Column(db.String(20), default='static')   # static o data
     data_type = db.Column(db.String(50))                     # cedula, nombre, apellido, nota, etc.
+    content_type = db.Column(db.String(50))                  # ← AGREGAR ESTA LÍNEA
     default_value = db.Column(db.Text)
     style_config = db.Column(db.Text)                        # JSON con estilos
     extra_config = db.Column(db.Text)

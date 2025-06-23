@@ -1,8 +1,9 @@
-from openpyxl import load_workbook
+from openpyxl import load_workbook, Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border
-from app.models.templates import ExcelTemplate, TemplateCell, TemplateRange
+from app.models.templates import ExcelTemplate, TemplateCell, TemplateRange, TemplateStyle
 from app.models.academic import Student, Section, Subject, Period, TeacherAssignment
 from app.models.grades import FinalGrade, StudentGrade
+from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from app import db
 from io import BytesIO
 import json
@@ -68,6 +69,307 @@ class TemplateProcessor:
         output.seek(0)
         
         return output
+
+
+    def process_template(self, context):
+            """
+            Método principal para procesar una plantilla con datos
+            
+            Args:
+                context: Diccionario con los datos para llenar la plantilla
+                
+            Returns:
+                openpyxl.Workbook: El libro de Excel procesado
+            """
+            try:
+                # Cargar o crear workbook
+                if self.template.file_path and os.path.exists(self.template.file_path):
+                    self.workbook = load_workbook(self.template.file_path)
+                    self.worksheet = self.workbook.active
+                else:
+                    self.workbook = Workbook()
+                    self.worksheet = self.workbook.active
+                    self.worksheet.title = "Reporte"
+                
+                # Procesar diferentes tipos de contenido
+                self._process_individual_cells(context)
+                self._process_student_table(context)
+                self._process_individual_cells(context)
+                self._process_ranges(context)
+                self._process_subject_headers(context)
+                self._apply_template_styles()
+                
+                return self.workbook
+                
+            except Exception as e:
+                print(f"Error procesando plantilla: {e}")
+                import traceback
+                traceback.print_exc()
+                raise Exception(f"Error procesando plantilla: {str(e)}")
+    
+    def _process_student_table(self, context):
+        """Procesar tabla de estudiantes si existe"""
+        try:
+            students = context.get('students', [])
+            subjects = context.get('subjects', [])
+            grades_data = context.get('grades_data', {})
+            
+            if not students:
+                return
+            
+            # Buscar celdas marcadas como tabla de estudiantes
+            table_cells = TemplateCell.query.filter_by(
+                template_id=self.template.id,
+                content_type='student_table'
+            ).all()
+            
+            if not table_cells:
+                return
+            
+            # Usar la primera celda como punto de inicio
+            start_cell = table_cells[0]
+            start_row = int(''.join(filter(str.isdigit, start_cell.cell_address)))
+            start_col = self._column_letter_to_number(
+                ''.join(filter(str.isalpha, start_cell.cell_address))
+            )
+            
+            # Escribir headers de estudiantes
+            self.worksheet.cell(row=start_row, column=start_col, value="ID")
+            self.worksheet.cell(row=start_row, column=start_col + 1, value="Apellidos")
+            self.worksheet.cell(row=start_row, column=start_col + 2, value="Nombres")
+            
+            # Headers de asignaturas
+            for i, subject in enumerate(subjects):
+                self.worksheet.cell(
+                    row=start_row, 
+                    column=start_col + 3 + i, 
+                    value=subject.name
+                )
+            
+            # Datos de estudiantes
+            for i, student in enumerate(students):
+                row = start_row + 1 + i
+                
+                self.worksheet.cell(row=row, column=start_col, value=student.student_id)
+                self.worksheet.cell(row=row, column=start_col + 1, value=student.last_name)
+                self.worksheet.cell(row=row, column=start_col + 2, value=student.first_name)
+                
+                # Calificaciones
+                for j, subject in enumerate(subjects):
+                    grade = grades_data.get(student.id, {}).get(subject.id)
+                    self.worksheet.cell(
+                        row=row, 
+                        column=start_col + 3 + j, 
+                        value=grade if grade is not None else ""
+                    )
+                    
+        except Exception as e:
+            print(f"Error procesando tabla de estudiantes: {e}")
+    
+    def _process_subject_headers(self, context):
+        """Procesar headers de asignaturas dinámicamente"""
+        try:
+            subjects = context.get('subjects', [])
+            
+            # Buscar celdas marcadas como headers de asignaturas
+            header_cells = TemplateCell.query.filter_by(
+                template_id=self.template.id,
+                content_type='subject_header'
+            ).all()
+            
+            for i, subject in enumerate(subjects):
+                if i < len(header_cells):
+                    cell = header_cells[i]
+                    self.worksheet[cell.cell_address] = subject.name
+                    
+        except Exception as e:
+            print(f"Error procesando headers de asignaturas: {e}")
+    
+    def _apply_template_styles(self):
+        """Aplicar estilos globales de la plantilla"""
+        try:
+            # Aplicar estilos de rangos
+            template_styles = TemplateStyle.query.filter_by(
+                template_id=self.template.id
+            ).all()
+            
+            for style in template_styles:
+                self._apply_range_style(style)
+                
+        except Exception as e:
+            print(f"Error aplicando estilos de plantilla: {e}")
+    
+    def _apply_range_style(self, template_style):
+        """Aplicar estilo a un rango de celdas"""
+        try:
+            # Ancho de columna
+            if template_style.column_width and ':' in template_style.range_address:
+                col_range = template_style.range_address.split(':')
+                for col in col_range:
+                    if col.isalpha():
+                        self.worksheet.column_dimensions[col].width = template_style.column_width
+            
+            # Alto de fila
+            if template_style.row_height and template_style.range_address.isdigit():
+                self.worksheet.row_dimensions[int(template_style.range_address)].height = template_style.row_height
+                
+        except Exception as e:
+            print(f"Error aplicando estilo de rango: {e}")
+    
+    def _column_letter_to_number(self, column_letter):
+        """Convierte letra de columna a número"""
+        result = 0
+        for char in column_letter:
+            result = result * 26 + (ord(char.upper()) - ord('A') + 1)
+        return result
+
+    def _apply_cell_style(self, cell, style_config_json):
+        """Aplicar estilo a una celda"""
+        
+        try:
+            # DESERIALIZAR EL JSON PRIMERO
+            if isinstance(style_config_json, str):
+                style_config = json.loads(style_config_json)
+            else:
+                style_config = style_config_json
+            
+            # Fuente
+            if 'font' in style_config:
+                font_config = style_config['font']
+                font_color = font_config.get('color', '000000')
+                
+                # Asegurar formato correcto de color
+                if len(font_color) == 6 and all(c in '0123456789ABCDEFabcdef' for c in font_color):
+                    cell.font = Font(
+                        name=font_config.get('name', 'Arial'),
+                        size=font_config.get('size', 11),
+                        bold=font_config.get('bold', False),
+                        italic=font_config.get('italic', False),
+                        color=font_color
+                    )
+            
+            # Relleno - Solo aplicar si existe y no es blanco
+            if 'fill' in style_config:
+                fill_config = style_config['fill']
+                fill_color = fill_config.get('color', 'FFFFFF')
+                
+                # Validar color y aplicar solo si no es blanco
+                if (len(fill_color) == 6 and 
+                    all(c in '0123456789ABCDEFabcdef' for c in fill_color) and 
+                    fill_color.upper() != 'FFFFFF'):
+                    
+                    cell.fill = PatternFill(
+                        start_color=fill_color,
+                        end_color=fill_color,
+                        fill_type='solid'
+                    )
+            
+            # Alineación
+            if 'alignment' in style_config:
+                align_config = style_config['alignment']
+                cell.alignment = Alignment(
+                    horizontal=align_config.get('horizontal', 'left'),
+                    vertical=align_config.get('vertical', 'top'),
+                    wrap_text=align_config.get('wrap_text', False)
+                )
+            
+            # Bordes - CORREGIDO
+            if 'border' in style_config:
+                border_config = style_config['border']
+                
+                # Extraer solo el estilo de cada lado (no todo el diccionario)
+                left_side = None
+                if 'left' in border_config and isinstance(border_config['left'], dict):
+                    left_style = border_config['left'].get('style')
+                    if left_style:
+                        left_side = Side(style=left_style)
+                
+                right_side = None
+                if 'right' in border_config and isinstance(border_config['right'], dict):
+                    right_style = border_config['right'].get('style')
+                    if right_style:
+                        right_side = Side(style=right_style)
+                
+                top_side = None
+                if 'top' in border_config and isinstance(border_config['top'], dict):
+                    top_style = border_config['top'].get('style')
+                    if top_style:
+                        top_side = Side(style=top_style)
+                
+                bottom_side = None
+                if 'bottom' in border_config and isinstance(border_config['bottom'], dict):
+                    bottom_style = border_config['bottom'].get('style')
+                    if bottom_style:
+                        bottom_side = Side(style=bottom_style)
+                
+                # Solo aplicar si hay al menos un borde
+                if any([left_side, right_side, top_side, bottom_side]):
+                    cell.border = Border(
+                        left=left_side,
+                        right=right_side,
+                        top=top_side,
+                        bottom=bottom_side
+                    )
+                    
+        except Exception as e:
+            print(f"Error aplicando estilo a celda {cell.coordinate}: {e}")
+            import traceback
+            traceback.print_exc()
+            # No aplicar ningún estilo si hay error
+            pass
+
+
+    def generate_preview(self):
+        """Generar vista previa con datos de ejemplo"""
+        
+        # Crear contexto de ejemplo
+        example_context = {
+            'section': type('Section', (), {
+                'grade': type('Grade', (), {'name': '1er Año'})(),
+                'name': 'A'
+            })(),
+            'period': type('Period', (), {'name': '1er Lapso'})(),
+            'current_date': datetime.now(),
+            'total_students': 25,
+            'student': type('Student', (), {
+                'first_name': 'Juan',
+                'last_name': 'Pérez',
+                'student_id': '12345678'
+            })()
+        }
+        
+        self.load_template()
+        
+        # Procesar solo celdas individuales para la vista previa
+        preview_data = {}
+        
+        individual_cells = TemplateCell.query.filter_by(
+            template_id=self.template.id
+        ).all()
+        
+        for cell in individual_cells:
+            try:
+                value = self._get_cell_value(cell, example_context)
+                
+                # Parsear dirección de celda
+                match = re.match(r'([A-Z]+)(\d+)', cell.cell_address)
+                if match:
+                    col_letter = match.group(1)
+                    row_num = int(match.group(2))
+                    
+                    if row_num not in preview_data:
+                        preview_data[row_num] = {}
+                    
+                    preview_data[row_num][col_letter] = {
+                        'value': value,
+                        'type': cell.data_type
+                    }
+                    
+            except Exception as e:
+                continue
+        
+        return preview_data
+
     
     def generate_student_report(self, student, period):
         """Generar reporte individual de estudiante"""
@@ -122,22 +424,40 @@ class TemplateProcessor:
             template_id=self.template.id
         ).all()
         
+        # print(f"=== DEBUG PROCESANDO CELDAS ===")
+        # print(f"Template ID: {self.template.id}")
+        # print(f"Total celdas encontradas: {len(individual_cells)}")
+        
         for cell in individual_cells:
+            # print(f"\nProcesando celda {cell.cell_address}:")
+            # print(f"  - Data Type: '{cell.data_type}'")
+            # print(f"  - Default Value: '{cell.default_value}'")
+            # print(f"  - Cell Type: '{cell.cell_type}'")
+            
             try:
                 value = self._get_cell_value(cell, context)
-                if value is not None:
+                # print(f"  - Valor calculado: '{value}'")
+                
+                if value is not None and value != '':
                     self.worksheet[cell.cell_address] = value
+                    # print(f"  - ✓ Valor '{value}' asignado a celda {cell.cell_address}")
                     
                     # Aplicar estilo si existe
                     if cell.style_config:
+                        # print(f"  - Aplicando estilo...")
                         self._apply_cell_style(
                             self.worksheet[cell.cell_address], 
-                            json.loads(cell.style_config)
+                            cell.style_config
                         )
-                        
+                        # print(f"  - ✓ Estilo aplicado")
+                    
             except Exception as e:
-                print(f"Error procesando celda {cell.cell_address}: {e}")
+                print(f"  - ✗ Error procesando celda: {e}")
+                import traceback
+                traceback.print_exc()
                 continue
+        
+        print(f"=== FIN DEBUG CELDAS ===")
     
     def _process_ranges(self, context):
         """Procesar rangos iterativos"""
@@ -146,44 +466,163 @@ class TemplateProcessor:
             template_id=self.template.id
         ).all()
         
+        print(f"=== DEBUG _process_ranges ===")
+        print(f"Template ID: {self.template.id}")
+        print(f"Rangos encontrados: {len(ranges)}")
+        
         for range_obj in ranges:
+            print(f"Procesando rango: {range_obj.range_name}")
+            print(f"  - Tipo: {range_obj.range_type}")
+            print(f"  - Start: {range_obj.start_cell}")
+            print(f"  - Mapping: {range_obj.data_mapping}")
+            
             try:
                 self._process_single_range(range_obj, context)
+                print(f"  - ✓ Rango procesado exitosamente")
             except Exception as e:
-                print(f"Error procesando rango {range_obj.range_name}: {e}")
+                print(f"  - ✗ Error procesando rango: {e}")
+                import traceback
+                traceback.print_exc()
                 continue
+        
+        print(f"=== FIN DEBUG _process_ranges ===")
+
+    def _process_students_range(self, range_obj, context):
+        """Procesar rango de estudiantes"""
+        
+        import json
+        import re
+        from openpyxl.utils import column_index_from_string, get_column_letter
+        
+        # Obtener estudiantes del contexto
+        students = context.get('students', [])
+        print(f"    Estudiantes disponibles: {len(students)}")
+        
+        if not students:
+            print("    No hay estudiantes para procesar")
+            return
+        
+        # Parsear mapping
+        try:
+            mapping = json.loads(range_obj.data_mapping)
+            print(f"    Mapping: {mapping}")
+        except Exception as e:
+            print(f"    Error parseando mapping: {e}")
+            return
+        
+        # Procesar rango
+        start_cell = range_obj.start_cell
+        end_cell = range_obj.end_cell
+        
+        if not start_cell:
+            print("    No hay celda inicial")
+            return
+        
+        # Extraer coordenadas del rango
+        start_match = re.match(r'([A-Z]+)(\d+)', start_cell.upper())  # ← Agregar .upper()
+        if not start_match:
+            print(f"    Formato de celda inicial inválido: {start_cell}")
+            return
+        
+        start_col = start_match.group(1)
+        start_row = int(start_match.group(2))
+        
+        # Si hay celda final, calcular rango completo
+        if end_cell:
+            end_match = re.match(r'([A-Z]+)(\d+)', end_cell.upper())  # ← Agregar .upper()
+            if end_match:
+                end_col = end_match.group(1)
+                end_row = int(end_match.group(2))
+                print(f"    Rango completo: {start_cell} hasta {end_cell}")
+            else:
+                end_col = start_col
+                end_row = start_row + len(students) - 1
+                print(f"    Rango calculado: {start_cell} hasta {end_col}{end_row}")
+        else:
+            # Rango abierto: solo columna inicial, tantas filas como estudiantes
+            end_col = start_col
+            end_row = start_row + len(students) - 1
+            print(f"    Rango abierto: {start_cell} hasta {end_col}{end_row}")
+        
+        # Determinar columnas a procesar
+        start_col_idx = column_index_from_string(start_col)
+        end_col_idx = column_index_from_string(end_col)
+        
+        print(f"    Columnas a procesar: {start_col} ({start_col_idx}) hasta {end_col} ({end_col_idx})")
+        
+        # Procesar cada estudiante
+        for i, student in enumerate(students):
+            current_row = start_row + i
+            
+            # Si excede el rango de filas, parar
+            if current_row > end_row:
+                print(f"    Límite de filas alcanzado en fila {current_row}")
+                break
+            
+            # ← CAMBIAR ESTA LÍNEA:
+            print(f"      Estudiante {i+1}: {student.first_name} {student.last_name} -> Fila {current_row}")
+            
+            # Procesar cada columna del rango
+            for col_idx in range(start_col_idx, end_col_idx + 1):
+                col_letter = get_column_letter(col_idx)
+                cell_address = f"{col_letter}{current_row}"
+                
+                # Determinar qué dato va en esta columna
+                data_type = self._get_data_type_for_column(col_letter, mapping, start_col)
+                
+                if data_type:
+                    value = self._get_student_data_value(student, data_type, i)
+                    print(f"        {cell_address} = '{value}' (tipo: {data_type})")
+                    
+                    if value is not None and value != '':
+                        self.worksheet[cell_address] = value
+                else:
+                    print(f"        {cell_address} = (sin mapeo)")
+
+    def _get_data_type_for_column(self, col_letter, mapping, start_col):
+        """Determinar qué tipo de dato va en una columna específica"""
+        
+        # Nuevo sistema simplificado
+        if 'tipo' in mapping:
+            return mapping['tipo']
+        
+        # Fallback para sistema anterior
+        if col_letter in mapping:
+            return mapping[col_letter]
+        
+        # Si es rango de una sola columna, usar el primer valor
+        return list(mapping.values())[0] if mapping else None
+
+    def _get_student_data_value(self, student, data_type, index=0):
+        """Obtener valor de dato del estudiante"""
+        
+        # ← CAMBIAR TODAS ESTAS LÍNEAS:
+        if data_type == 'cedula':
+            return student.student_id or ''
+        elif data_type == 'nombre_completo':
+            first_name = student.first_name or 'didnt work bro'
+            last_name = student.last_name or 'didnt work bro'
+            return f"{first_name} {last_name}".strip()
+        elif data_type == 'nombres':
+            return student.first_name or 'didnt work bro'
+        elif data_type == 'apellidos':
+            return student.last_name or 'didnt work bro'
+        elif data_type == 'numero_correlativo' or data_type == 'numero':
+            return index + 1
+        else:
+            print(f"        Tipo de dato no reconocido: {data_type}")
+            return ''
     
     def _process_single_range(self, range_obj, context):
         """Procesar un rango específico"""
         
-        # Obtener mapeo de columnas
-        try:
-            column_mapping = json.loads(range_obj.data_mapping)
-        except:
-            return
+        print(f"  _process_single_range: {range_obj.range_name}")
+        print(f"    Tipo: {range_obj.range_type}")
+        print(f"    Start cell: {range_obj.start_cell}")
+        print(f"    Data mapping: {range_obj.data_mapping}")
         
-        # Obtener datos según el tipo de rango
         if range_obj.range_type == 'students':
-            data_rows = self._get_students_data(context, column_mapping)
-        elif range_obj.range_type == 'subjects':
-            data_rows = self._get_subjects_data(context, column_mapping)
-        elif range_obj.range_type == 'grades_by_student':
-            data_rows = self._get_grades_data(context, column_mapping)
-        else:
-            return
-        
-        # Escribir datos en el rango
-        start_row, start_col = self._parse_cell_address(range_obj.start_cell)
-        
-        for row_index, row_data in enumerate(data_rows):
-            current_row = start_row + row_index
-            
-            for col_letter, data_type in column_mapping.items():
-                col_index = ord(col_letter) - ord('A') + start_col
-                cell_address = f"{col_letter}{current_row}"
-                
-                if data_type in row_data:
-                    self.worksheet[cell_address] = row_data[data_type]
+            self._process_students_range(range_obj, context)
     
     def _get_students_data(self, context, column_mapping):
         """Obtener datos de estudiantes"""
@@ -305,15 +744,22 @@ class TemplateProcessor:
         """Obtener el valor para una celda según su tipo"""
         
         data_type = cell.data_type
+        # print(f"    _get_cell_value: celda={cell.cell_address}, data_type='{data_type}', default_value='{cell.default_value}'")
         
         if data_type == 'static':
-            return cell.default_value
+            result = cell.default_value
+            # print(f"    → Retornando static: '{result}'")
+            return result
         
         elif data_type == 'custom_text':
-            return cell.custom_text or cell.default_value
+            result = cell.default_value
+            # print(f"    → Retornando custom_text: '{result}'")
+            return result
         
         elif data_type == 'titulo_reporte':
-            return 'REPORTE DE CALIFICACIONES'
+            result = 'REPORTE DE CALIFICACIONES'
+            # print(f"    → Retornando titulo_reporte: '{result}'")
+            return result
         
         elif data_type == 'nombre_institucion':
             return 'UNIDAD EDUCATIVA'  # Puedes hacer esto configurable
@@ -332,7 +778,13 @@ class TemplateProcessor:
         
         elif data_type == 'fecha_actual':
             current_date = context.get('current_date')
-            return current_date.strftime('%d/%m/%Y') if current_date else ''
+            # Manejar tanto string como datetime
+            if isinstance(current_date, str):
+                return current_date
+            elif hasattr(current_date, 'strftime'):
+                return current_date.strftime('%d/%m/%Y')
+            else:
+                return ''
         
         elif data_type == 'total_estudiantes':
             return context.get('total_students', 0)
@@ -360,7 +812,10 @@ class TemplateProcessor:
         elif data_type == 'estudiante_promedio':
             return self._calculate_student_average(context)
         
-        return cell.default_value
+        # Si no coincide con ningún tipo específico, usar default_value
+        result = cell.default_value
+        # print(f"    → Retornando default: '{result}'")
+        return result
     
     def _calculate_section_average(self, context):
         """Calcular promedio general de la sección"""
@@ -439,89 +894,3 @@ class TemplateProcessor:
         
         return row_num, col_num
     
-    def _apply_cell_style(self, cell, style_config):
-        """Aplicar estilo a una celda"""
-        
-        try:
-            # Fuente
-            if 'font' in style_config:
-                font_config = style_config['font']
-                cell.font = Font(
-                    name=font_config.get('name', 'Arial'),
-                    size=font_config.get('size', 11),
-                    bold=font_config.get('bold', False),
-                    italic=font_config.get('italic', False),
-                    color=font_config.get('color', '000000')
-                )
-            
-            # Relleno
-            if 'fill' in style_config:
-                fill_config = style_config['fill']
-                cell.fill = PatternFill(
-                    start_color=fill_config.get('color', 'FFFFFF'),
-                    end_color=fill_config.get('color', 'FFFFFF'),
-                    fill_type='solid'
-                )
-            
-            # Alineación
-            if 'alignment' in style_config:
-                align_config = style_config['alignment']
-                cell.alignment = Alignment(
-                    horizontal=align_config.get('horizontal', 'left'),
-                    vertical=align_config.get('vertical', 'top'),
-                    wrap_text=align_config.get('wrap_text', False)
-                )
-                
-        except Exception as e:
-            print(f"Error aplicando estilo: {e}")
-    
-    def generate_preview(self):
-        """Generar vista previa con datos de ejemplo"""
-        
-        # Crear contexto de ejemplo
-        example_context = {
-            'section': type('Section', (), {
-                'grade': type('Grade', (), {'name': '1er Año'})(),
-                'name': 'A'
-            })(),
-            'period': type('Period', (), {'name': '1er Lapso'})(),
-            'current_date': datetime.now(),
-            'total_students': 25,
-            'student': type('Student', (), {
-                'first_name': 'Juan',
-                'last_name': 'Pérez',
-                'student_id': '12345678'
-            })()
-        }
-        
-        self.load_template()
-        
-        # Procesar solo celdas individuales para la vista previa
-        preview_data = {}
-        
-        individual_cells = TemplateCell.query.filter_by(
-            template_id=self.template.id
-        ).all()
-        
-        for cell in individual_cells:
-            try:
-                value = self._get_cell_value(cell, example_context)
-                
-                # Parsear dirección de celda
-                match = re.match(r'([A-Z]+)(\d+)', cell.cell_address)
-                if match:
-                    col_letter = match.group(1)
-                    row_num = int(match.group(2))
-                    
-                    if row_num not in preview_data:
-                        preview_data[row_num] = {}
-                    
-                    preview_data[row_num][col_letter] = {
-                        'value': value,
-                        'type': cell.data_type
-                    }
-                    
-            except Exception as e:
-                continue
-        
-        return preview_data

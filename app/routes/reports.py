@@ -70,63 +70,114 @@ def index():
 @reports.route('/generate-with-template/<int:template_id>')
 @login_required
 def generate_with_template(template_id):
-    """Generar reporte usando una plantilla específica"""
+    """Genera reporte usando el NUEVO sistema de plantillas"""
     
-    template = ExcelTemplate.query.get_or_404(template_id)
-    
-    # Obtener parámetros
-    section_id = request.args.get('section_id', type=int)
-    period_id = request.args.get('period_id', type=int)
-    student_id = request.args.get('student_id', type=int)
+    section_id = request.args.get('section_id')
+    period_id = request.args.get('period_id')
     
     if not section_id or not period_id:
-        flash('Debe seleccionar una sección y un período', 'danger')
+        flash('Parámetros faltantes: section_id y period_id son requeridos', 'danger')
         return redirect(url_for('reports.index'))
     
-    section = Section.query.get_or_404(section_id)
-    period = Period.query.get_or_404(period_id)
-    
-    # Verificar acceso
-    if not current_user.is_admin():
-        teacher = Teacher.query.filter_by(user_id=current_user.id).first()
+    try:
+        # Obtener objetos de la base de datos
+        template = ExcelTemplate.query.get_or_404(template_id)
+        section = Section.query.get_or_404(section_id)
+        period = Period.query.get_or_404(period_id)
         
-        if not teacher:
-            flash('No se encontró un perfil de profesor para este usuario', 'warning')
-            return redirect(url_for('auth.logout'))
+        # Verificar acceso (tu código de permisos existente)
+        if not current_user.is_admin():
+            teacher = Teacher.query.filter_by(user_id=current_user.id).first()
+            
+            if not teacher:
+                flash('No se encontró un perfil de profesor para este usuario', 'warning')
+                return redirect(url_for('auth.logout'))
+            
+            assignment = TeacherAssignment.query.filter_by(
+                teacher_id=teacher.id,
+                section_id=section_id,
+                academic_year_id=period.academic_year_id
+            ).first()
+            
+            if not assignment:
+                flash('No tienes permiso para generar reportes de esta sección', 'danger')
+                return redirect(url_for('reports.index'))
         
-        assignment = TeacherAssignment.query.filter_by(
-            teacher_id=teacher.id,
+        # USAR EL NUEVO SISTEMA DE PLANTILLAS
+        from app.services.template_processor import TemplateProcessor
+        from datetime import datetime
+        
+        # Obtener estudiantes de la sección
+        students = Student.query.filter_by(
+            section_id=section_id,
+            is_active=True
+        ).order_by(Student.last_name).all()
+        
+        # Obtener asignaturas para esta sección
+        subject_ids = db.session.query(TeacherAssignment.subject_id).filter_by(
             section_id=section_id,
             academic_year_id=period.academic_year_id
-        ).first()
+        ).distinct().all()
         
-        if not assignment:
-            flash('No tienes permiso para generar reportes de esta sección', 'danger')
-            return redirect(url_for('reports.index'))
-    
-    try:
-        # Usar el procesador de plantillas
+        subject_ids = [s[0] for s in subject_ids]
+        subjects = Subject.query.filter(Subject.id.in_(subject_ids)).order_by(Subject.name).all()
+        
+        # Obtener calificaciones finales
+        grades_data = {}
+        for student in students:
+            grades_data[student.id] = {}
+            for subject in subjects:
+                final_grade = FinalGrade.query.filter_by(
+                    student_id=student.id,
+                    subject_id=subject.id,
+                    period_id=period.id
+                ).first()
+                
+                if final_grade:
+                    grades_data[student.id][subject.id] = final_grade.value
+                else:
+                    grades_data[student.id][subject.id] = None
+        
+        # Crear contexto para la plantilla
+        context = {
+            'template': template,
+            'section': section,
+            'grade': section.grade,
+            'period': period,
+            'academic_year': period.academic_year,
+            'students': students,
+            'subjects': subjects,
+            'grades_data': grades_data,
+            'current_date': datetime.now().strftime('%d/%m/%Y'),
+            'current_datetime': datetime.now(),
+            'total_students': len(students),
+            'total_subjects': len(subjects)
+        }
+        
+        # Procesar plantilla con el nuevo sistema
         processor = TemplateProcessor(template)
+        workbook = processor.process_template(context)
         
-        if student_id:
-            # Reporte individual
-            student = Student.query.get_or_404(student_id)
-            excel_file = processor.generate_student_report(student, period)
-            filename = f'Reporte_{template.name}_{student.last_name}_{student.first_name}_{period.name}.xlsx'
-        else:
-            # Reporte de sección
-            excel_file = processor.generate_section_report(section, period)
-            filename = f'Reporte_{template.name}_{section.grade.name}{section.name}_{period.name}.xlsx'
+        # Crear archivo en memoria
+        output = BytesIO()
+        workbook.save(output)
+        output.seek(0)
+        
+        # Generar nombre de archivo
+        filename = f'Reporte_{template.name}_{section.grade.name}{section.name}_{period.name}.xlsx'
         
         return send_file(
-            excel_file,
+            output,
             as_attachment=True,
             download_name=filename,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
         
     except Exception as e:
-        flash(f'Error al generar reporte: {str(e)}', 'danger')
+        print(f"Error generando reporte con plantilla: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        flash(f'Error generando reporte: {str(e)}', 'danger')
         return redirect(url_for('reports.index'))
 
 # NUEVA RUTA: Vista previa de plantilla
@@ -831,22 +882,3 @@ def templates_list():
                          periods=periods,
                          sections=sections,
                          templates=templates)
-
-# @reports.route('/template/preview/<int:template_id>')
-# @login_required
-# def template_preview(template_id):
-#     """Vista previa de una plantilla"""
-    
-#     from app.services.template_service import TemplateService
-    
-#     try:
-#         preview_data = TemplateService.generate_preview(template_id)
-#         return jsonify({
-#             'success': True,
-#             'preview': preview_data
-#         })
-#     except Exception as e:
-#         return jsonify({
-#             'success': False,
-#             'error': str(e)
-#         })
