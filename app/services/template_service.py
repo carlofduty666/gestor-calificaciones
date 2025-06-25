@@ -24,28 +24,28 @@ class TemplateService:
             TemplateCell.query.filter_by(template_id=template_id).delete()
             TemplateStyle.query.filter_by(template_id=template_id).delete()
             
-            # Analizar celdas con contenido - CORREGIDO PARA MERGED CELLS
+            print(f"🔍 Analizando estructura del template {template_id}")
+            
+            # Analizar celdas con contenido
             for row in ws.iter_rows():
                 for cell in row:
-                    # SALTAR CELDAS COMBINADAS
-                    if hasattr(cell, '__class__') and cell.__class__.__name__ == 'MergedCell':
-                        continue
-                    
-                    # Solo procesar celdas con contenido
                     if cell.value is not None:
-                        try:
-                            # Crear celda de plantilla
-                            template_cell = TemplateCell(
-                                template_id=template_id,
-                                cell_address=cell.coordinate,
-                                cell_type='static',
-                                default_value=str(cell.value),
-                                style_config=TemplateService._extract_cell_style(cell)
-                            )
-                            db.session.add(template_cell)
-                        except Exception as e:
-                            print(f"Error procesando celda {cell.coordinate}: {e}")
-                            continue
+                        # 🔢 DETERMINAR TIPO DE DATO Y FORMATO
+                        cell_data_type = TemplateService._determine_cell_data_type(cell)
+                        formatted_value = TemplateService._format_cell_value(cell)
+                        
+                        print(f"Celda: {cell.coordinate}, Valor: {cell.value}, Tipo: {cell_data_type}, Formateado: {formatted_value}")
+                        
+                        # Crear celda de plantilla
+                        template_cell = TemplateCell(
+                            template_id=template_id,
+                            cell_address=cell.coordinate,
+                            cell_type='static',  # Por defecto estático
+                            default_value=formatted_value,  # Usar valor formateado
+                            data_type=cell_data_type,  # 🔢 NUEVO: Guardar tipo de dato
+                            style_config=TemplateService._extract_cell_style(cell)
+                        )
+                        db.session.add(template_cell)
             
             # Analizar estilos de columnas
             for col_letter, col_dimension in ws.column_dimensions.items():
@@ -81,23 +81,122 @@ class TemplateService:
         except Exception as e:
             db.session.rollback()
             raise Exception(f"Error al analizar plantilla: {str(e)}")
+        
+    @staticmethod
+    def _determine_cell_data_type(cell):
+        """Determina el tipo de dato de una celda"""
+        
+        if cell.value is None:
+            return 'text'
+        
+        # Verificar si es número
+        if isinstance(cell.value, (int, float)):
+            # Verificar formato de número en Excel
+            if cell.number_format:
+                format_code = cell.number_format.lower()
+                
+                # Formatos que indican decimales
+                decimal_formats = ['0.0', '0.00', '#.#', '#.##', 'general', '0.000']
+                
+                # Formatos que indican enteros
+                integer_formats = ['0', '#', '0_', '#_']
+                
+                # Si tiene formato específico de decimal
+                if any(fmt in format_code for fmt in decimal_formats) and '.' in format_code:
+                    return 'decimal'
+                
+                # Si tiene formato específico de entero
+                if any(fmt in format_code for fmt in integer_formats):
+                    return 'integer'
+                
+                # Si es porcentaje
+                if '%' in format_code:
+                    return 'percentage'
+            
+            # Si no hay formato específico, determinar por el valor
+            if isinstance(cell.value, int):
+                return 'integer'
+            elif isinstance(cell.value, float):
+                # Si el float es realmente un entero (ej: 15.0)
+                if cell.value.is_integer():
+                    return 'integer'
+                else:
+                    return 'decimal'
+        
+        # Verificar si es fecha
+        if hasattr(cell, 'is_date') and cell.is_date:
+            return 'date'
+        
+        # Por defecto es texto
+        return 'text'
+
+    @staticmethod
+    def _format_cell_value(cell):
+        """Formatea el valor de la celda preservando su tipo original"""
+        
+        if cell.value is None:
+            return ''
+        
+        # Determinar tipo
+        data_type = TemplateService._determine_cell_data_type(cell)
+        
+        if data_type == 'integer':
+            # Preservar como entero
+            if isinstance(cell.value, float) and cell.value.is_integer():
+                return str(int(cell.value))
+            elif isinstance(cell.value, int):
+                return str(cell.value)
+        
+        elif data_type == 'decimal':
+            # Preservar decimales
+            if isinstance(cell.value, (int, float)):
+                # Determinar número de decimales del formato original
+                if cell.number_format and '.' in cell.number_format:
+                    decimal_places = cell.number_format.count('0') - cell.number_format.find('.') - 1
+                    if decimal_places > 0:
+                        return f"{cell.value:.{decimal_places}f}"
+                return str(float(cell.value))
+        
+        elif data_type == 'percentage':
+            # Manejar porcentajes
+            return f"{cell.value * 100}%" if isinstance(cell.value, float) else str(cell.value)
+        
+        # Para texto y otros tipos
+        return str(cell.value)
 
     @staticmethod
     def _extract_cell_style(cell):
         """Extrae los estilos de una celda"""
         style_config = {}
         
+        print(f"🔍 DEBUG: Extrayendo estilo de celda {cell.coordinate}")
+        
         try:
             # Fuente
             if cell.font:
                 font_color = '000000'  # Default negro
-                if cell.font.color and hasattr(cell.font.color, 'rgb') and cell.font.color.rgb:
-                    color_value = str(cell.font.color.rgb)
-                    # Convertir ARGB a RGB
-                    if len(color_value) == 8:
-                        font_color = color_value[2:]  # Quitar los primeros 2 caracteres (alpha)
-                    elif len(color_value) == 6:
-                        font_color = color_value
+                
+                # ARREGLAR EXTRACCIÓN DE COLOR DE FUENTE
+                try:
+                    if cell.font.color and hasattr(cell.font.color, 'rgb') and cell.font.color.rgb:
+                        color_value = str(cell.font.color.rgb)
+                        print(f"   🎨 Color raw de fuente: {color_value}")
+                        
+                        # Manejar diferentes formatos
+                        if color_value.startswith('FF') and len(color_value) == 8:
+                            font_color = color_value[2:]  # Quitar FF (alpha)
+                        elif len(color_value) == 6:
+                            font_color = color_value
+                        elif color_value == '0':
+                            font_color = '000000'  # Negro
+                        else:
+                            font_color = '000000'  # Default si no se puede parsear
+                            
+                        print(f"   📝 Color procesado de fuente: {font_color}")
+                            
+                except Exception as font_error:
+                    print(f"   ❌ Error procesando color de fuente: {font_error}")
+                    font_color = '000000'
                 
                 style_config['font'] = {
                     'name': cell.font.name or 'Arial',
@@ -106,122 +205,147 @@ class TemplateService:
                     'italic': cell.font.italic or False,
                     'color': font_color
                 }
+                print(f"   📝 Font extraída: {style_config['font']}")
             
-            # Relleno - SOLO si no es blanco
-            if cell.fill and cell.fill.start_color and hasattr(cell.fill.start_color, 'rgb') and cell.fill.start_color.rgb:
-                fill_color_value = str(cell.fill.start_color.rgb)
-                fill_color = 'FFFFFF'  # Default blanco
-                
-                if len(fill_color_value) == 8:
-                    fill_color = fill_color_value[2:]  # Quitar alpha
-                elif len(fill_color_value) == 6:
-                    fill_color = fill_color_value
-                
-                # Solo guardar si NO es blanco
-                if fill_color.upper() not in ['FFFFFF', 'FFFFFFFF']:
-                    style_config['fill'] = {
-                        'color': fill_color
-                    }
-            
-            # Alineación
-            if cell.alignment:
-                style_config['alignment'] = {
-                    'horizontal': cell.alignment.horizontal or 'left',
-                    'vertical': cell.alignment.vertical or 'top',
-                    'wrap_text': cell.alignment.wrap_text or False
-                }
-            
-            # BORDES - Simplificado
-            if cell.border:
-                border_config = {}
-                
-                # Solo capturar si hay bordes visibles
-                if cell.border.left and cell.border.left.style:
-                    border_config['left'] = cell.border.left.style
-                if cell.border.right and cell.border.right.style:
-                    border_config['right'] = cell.border.right.style
-                if cell.border.top and cell.border.top.style:
-                    border_config['top'] = cell.border.top.style
-                if cell.border.bottom and cell.border.bottom.style:
-                    border_config['bottom'] = cell.border.bottom.style
-                
-                if border_config:
-                    style_config['border'] = border_config
-            
-            return json.dumps(style_config) if style_config else None
-            
-        except Exception as e:
-            print(f"Error extrayendo estilo de celda {cell.coordinate}: {e}")
-            return None
-
-    @staticmethod
-    def _extract_cell_style(cell):
-        """Extrae los estilos de una celda"""
-        style_config = {}
-        
-        try:
-            # Fuente
-            if cell.font:
-                style_config['font'] = {
-                    'name': cell.font.name or 'Arial',
-                    'size': cell.font.size or 11,
-                    'bold': cell.font.bold or False,
-                    'italic': cell.font.italic or False,
-                    'color': str(cell.font.color.rgb)[2:] if cell.font.color and cell.font.color.rgb else '000000'
-                }
-            
-            # Relleno
-            if cell.fill and cell.fill.start_color and cell.fill.start_color.rgb:
-                fill_color = str(cell.fill.start_color.rgb)
-                if fill_color != 'FFFFFFFF' and fill_color != 'FFFFFF':
-                    style_config['fill'] = {
-                        'color': fill_color[2:] if len(fill_color) == 8 else fill_color
-                    }
+            # ARREGLAR EXTRACCIÓN DE RELLENO
+            if cell.fill and cell.fill.start_color:
+                try:
+                    fill_color = 'FFFFFF'  # Default blanco
+                    
+                    if hasattr(cell.fill.start_color, 'rgb') and cell.fill.start_color.rgb:
+                        fill_value = str(cell.fill.start_color.rgb)
+                        print(f"   🎨 Fill raw: {fill_value}")
+                        
+                        # Manejar diferentes formatos
+                        if fill_value.startswith('FF') and len(fill_value) == 8:
+                            fill_color = fill_value[2:]  # Quitar FF (alpha)
+                        elif len(fill_value) == 6:
+                            fill_color = fill_value
+                        elif fill_value == '0':
+                            fill_color = 'FFFFFF'  # Blanco por defecto si es 0
+                        else:
+                            fill_color = 'FFFFFF'  # Default blanco
+                            
+                        print(f"   🎨 Fill procesado: {fill_color}")
+                    
+                    # SOLO guardar si NO es blanco
+                    if fill_color.upper() not in ['FFFFFF', 'FFFFFFFF']:
+                        style_config['fill'] = {
+                            'color': fill_color
+                        }
+                        print(f"   ✅ Fill guardado: {fill_color}")
+                    else:
+                        print(f"   ⚪ Fill blanco ignorado")
+                        
+                except Exception as fill_error:
+                    print(f"   ❌ Error procesando fill: {fill_error}")
             
             # BORDES - CAPTURAR EL ESTILO ORIGINAL EXACTO
             if cell.border:
                 border_config = {}
                 
-                # Capturar cada lado del borde con su estilo original
-                if cell.border.left and cell.border.left.style:
-                    border_config['left'] = {
-                        'style': cell.border.left.style,
-                        'color': str(cell.border.left.color.rgb)[2:] if cell.border.left.color and cell.border.left.color.rgb else '000000'
-                    }
-                
-                if cell.border.right and cell.border.right.style:
-                    border_config['right'] = {
-                        'style': cell.border.right.style,
-                        'color': str(cell.border.right.color.rgb)[2:] if cell.border.right.color and cell.border.right.color.rgb else '000000'
-                    }
-                
-                if cell.border.top and cell.border.top.style:
-                    border_config['top'] = {
-                        'style': cell.border.top.style,
-                        'color': str(cell.border.top.color.rgb)[2:] if cell.border.top.color and cell.border.top.color.rgb else '000000'
-                    }
-                
-                if cell.border.bottom and cell.border.bottom.style:
-                    border_config['bottom'] = {
-                        'style': cell.border.bottom.style,
-                        'color': str(cell.border.bottom.color.rgb)[2:] if cell.border.bottom.color and cell.border.bottom.color.rgb else '000000'
-                    }
-                
-                if border_config:
-                    style_config['border'] = border_config
+                try:
+                    # Capturar cada lado del borde con su estilo original
+                    if cell.border.left and cell.border.left.style:
+                        left_color = '000000'
+                        try:
+                            if cell.border.left.color and cell.border.left.color.rgb:
+                                left_color = str(cell.border.left.color.rgb)
+                                if left_color.startswith('FF') and len(left_color) == 8:
+                                    left_color = left_color[2:]
+                        except:
+                            left_color = '000000'
+                            
+                        border_config['left'] = {
+                            'style': cell.border.left.style,
+                            'color': left_color
+                        }
+                    
+                    if cell.border.right and cell.border.right.style:
+                        right_color = '000000'
+                        try:
+                            if cell.border.right.color and cell.border.right.color.rgb:
+                                right_color = str(cell.border.right.color.rgb)
+                                if right_color.startswith('FF') and len(right_color) == 8:
+                                    right_color = right_color[2:]
+                        except:
+                            right_color = '000000'
+                            
+                        border_config['right'] = {
+                            'style': cell.border.right.style,
+                            'color': right_color
+                        }
+                    
+                    if cell.border.top and cell.border.top.style:
+                        top_color = '000000'
+                        try:
+                            if cell.border.top.color and cell.border.top.color.rgb:
+                                top_color = str(cell.border.top.color.rgb)
+                                if top_color.startswith('FF') and len(top_color) == 8:
+                                    top_color = top_color[2:]
+                        except:
+                            top_color = '000000'
+                            
+                        border_config['top'] = {
+                            'style': cell.border.top.style,
+                            'color': top_color
+                        }
+                    
+                    if cell.border.bottom and cell.border.bottom.style:
+                        bottom_color = '000000'
+                        try:
+                            if cell.border.bottom.color and cell.border.bottom.color.rgb:
+                                bottom_color = str(cell.border.bottom.color.rgb)
+                                if bottom_color.startswith('FF') and len(bottom_color) == 8:
+                                    bottom_color = bottom_color[2:]
+                        except:
+                            bottom_color = '000000'
+                            
+                        border_config['bottom'] = {
+                            'style': cell.border.bottom.style,
+                            'color': bottom_color
+                        }
+                    
+                    if border_config:
+                        style_config['border'] = border_config
+                        print(f"   🔲 Border extraído: {border_config}")
+                        
+                except Exception as border_error:
+                    print(f"   ❌ Error procesando bordes: {border_error}")
             
             # Alineación
             if cell.alignment:
-                style_config['alignment'] = {
+                alignment_config = {
                     'horizontal': cell.alignment.horizontal or 'left',
                     'vertical': cell.alignment.vertical or 'top',
                     'wrap_text': cell.alignment.wrap_text or False
                 }
+                
+                # 🔄 CAPTURAR ORIENTACIÓN DE TEXTO (VERTICAL/HORIZONTAL)
+                if cell.alignment.text_rotation is not None:
+                    alignment_config['text_rotation'] = cell.alignment.text_rotation
+                    print(f"   🔄 Rotación de texto detectada: {cell.alignment.text_rotation}°")
+                
+                # Capturar shrink_to_fit si existe
+                if cell.alignment.shrink_to_fit is not None:
+                    alignment_config['shrink_to_fit'] = cell.alignment.shrink_to_fit
+                
+                # Capturar indent si existe
+                if cell.alignment.indent is not None and cell.alignment.indent > 0:
+                    alignment_config['indent'] = cell.alignment.indent
+                
+                style_config['alignment'] = alignment_config
+                print(f"   📐 Alignment extraído: {alignment_config}")
             
-            return json.dumps(style_config) if style_config else None
+            result = json.dumps(style_config) if style_config else None
+            print(f"   ✅ Estilo final para {cell.coordinate}: {result}")
+            
+            return result
             
         except Exception as e:
-            print(f"Error extrayendo estilo: {e}")
+            print(f"❌ ERROR GENERAL extrayendo estilo de {cell.coordinate}: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     # Agregar estos métodos al final de la clase TemplateService

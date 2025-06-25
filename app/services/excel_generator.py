@@ -93,25 +93,39 @@ class ExcelGenerator:
     def _apply_cell_style(cell, style_config):
         """Aplica estilo a una celda específica"""
         
+        print(f"🎨 DEBUG ExcelGenerator: Aplicando estilo a {cell.coordinate}")
+        print(f"   📄 Config recibida: {style_config}")
+        
         # Fuente
         if 'font' in style_config:
             font_config = style_config['font']
+            font_color = font_config.get('color', '000000')
+            print(f"   📝 Font color: {font_color}")
+            
             cell.font = Font(
                 name=font_config.get('name', 'Arial'),
                 size=font_config.get('size', 11),
                 bold=font_config.get('bold', False),
                 italic=font_config.get('italic', False),
-                color=font_config.get('color', '000000')
+                color=font_color
             )
         
         # Relleno
         if 'fill' in style_config:
             fill_config = style_config['fill']
-            cell.fill = PatternFill(
-                start_color=fill_config.get('color', 'FFFFFF'),
-                end_color=fill_config.get('color', 'FFFFFF'),
-                fill_type='solid'
-            )
+            fill_color = fill_config.get('color', 'FFFFFF')
+            print(f"   🎨 Fill color: {fill_color}")
+            
+            # SOLO aplicar si no es blanco
+            if fill_color.upper() != 'FFFFFF':
+                cell.fill = PatternFill(
+                    start_color=fill_color,
+                    end_color=fill_color,
+                    fill_type='solid'
+                )
+                print(f"   ✅ Fill aplicado")
+            else:
+                print(f"   ⚪ Fill blanco ignorado")
         
         # Alineación
         if 'alignment' in style_config:

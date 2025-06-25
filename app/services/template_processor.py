@@ -216,6 +216,7 @@ class TemplateProcessor:
         except Exception as e:
             print(f"Error aplicando estilo de rango: {e}")
     
+    
     def _column_letter_to_number(self, column_letter):
         """Convierte letra de columna a número"""
         result = 0
@@ -226,6 +227,9 @@ class TemplateProcessor:
     def _apply_cell_style(self, cell, style_config_json):
         """Aplicar estilo a una celda"""
         
+        print(f"🎨 DEBUG: Aplicando estilo a celda {cell.coordinate}")
+        print(f"   📄 Estilo JSON recibido: {style_config_json}")
+        
         try:
             # DESERIALIZAR EL JSON PRIMERO
             if isinstance(style_config_json, str):
@@ -233,10 +237,14 @@ class TemplateProcessor:
             else:
                 style_config = style_config_json
             
+            print(f"   📋 Estilo deserializado: {style_config}")
+            
             # Fuente
             if 'font' in style_config:
                 font_config = style_config['font']
                 font_color = font_config.get('color', '000000')
+                
+                print(f"   📝 Aplicando font - color: {font_color}")
                 
                 # Asegurar formato correcto de color
                 if len(font_color) == 6 and all(c in '0123456789ABCDEFabcdef' for c in font_color):
@@ -247,11 +255,16 @@ class TemplateProcessor:
                         italic=font_config.get('italic', False),
                         color=font_color
                     )
+                    print(f"   ✅ Font aplicada correctamente")
+                else:
+                    print(f"   ❌ Color de font inválido: {font_color}")
             
             # Relleno - Solo aplicar si existe y no es blanco
             if 'fill' in style_config:
                 fill_config = style_config['fill']
                 fill_color = fill_config.get('color', 'FFFFFF')
+                
+                print(f"   🎨 Evaluando fill - color: {fill_color}")
                 
                 # Validar color y aplicar solo si no es blanco
                 if (len(fill_color) == 6 and 
@@ -263,15 +276,35 @@ class TemplateProcessor:
                         end_color=fill_color,
                         fill_type='solid'
                     )
+                    print(f"   ✅ Fill aplicado: {fill_color}")
+                else:
+                    print(f"   ⚪ Fill ignorado (blanco o inválido): {fill_color}")
             
-            # Alineación
+            # ALINEACIÓN - INCLUYENDO ORIENTACIÓN DE TEXTO
             if 'alignment' in style_config:
                 align_config = style_config['alignment']
-                cell.alignment = Alignment(
-                    horizontal=align_config.get('horizontal', 'left'),
-                    vertical=align_config.get('vertical', 'top'),
-                    wrap_text=align_config.get('wrap_text', False)
-                )
+                
+                alignment_kwargs = {
+                    'horizontal': align_config.get('horizontal', 'left'),
+                    'vertical': align_config.get('vertical', 'top'),
+                    'wrap_text': align_config.get('wrap_text', False)
+                }
+                
+                # 🔄 APLICAR ROTACIÓN DE TEXTO
+                if 'text_rotation' in align_config:
+                    alignment_kwargs['text_rotation'] = align_config['text_rotation']
+                    print(f"   🔄 Aplicando rotación {align_config['text_rotation']}° a {cell.coordinate}")
+                
+                # Aplicar shrink_to_fit si existe
+                if 'shrink_to_fit' in align_config:
+                    alignment_kwargs['shrink_to_fit'] = align_config['shrink_to_fit']
+                
+                # Aplicar indent si existe
+                if 'indent' in align_config:
+                    alignment_kwargs['indent'] = align_config['indent']
+                
+                cell.alignment = Alignment(**alignment_kwargs)
+                print(f"   📐 Alignment aplicado: {alignment_kwargs}")
             
             # Bordes - CORREGIDO
             if 'border' in style_config:
