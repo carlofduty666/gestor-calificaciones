@@ -32,6 +32,52 @@ class ExcelTemplate(db.Model):
     def set_design_config(self, config):
         self.design_config = json.dumps(config)
 
+    def get_student_ranges(self):
+        """Obtiene rangos de tipo estudiantes"""
+        return TemplateRange.query.filter_by(
+            template_id=self.id,
+            range_type='students'
+        ).all()
+    
+    def get_range_capacity(self, range_name):
+        """Obtiene la capacidad actual de un rango"""
+        range_obj = TemplateRange.query.filter_by(
+            template_id=self.id,
+            range_name=range_name
+        ).first()
+        
+        if not range_obj or not range_obj.end_cell:
+            return 0
+        
+        start_row = int(''.join(filter(str.isdigit, range_obj.start_cell)))
+        end_row = int(''.join(filter(str.isdigit, range_obj.end_cell)))
+        
+        return end_row - start_row + 1
+    
+    def needs_extension_for_data(self, data):
+        """Verifica si el template necesita extensión para los datos"""
+        
+        students_count = len(data.get('students', []))
+        student_ranges = self.get_student_ranges()
+        
+        for range_obj in student_ranges:
+            current_capacity = self.get_range_capacity(range_obj.range_name)
+            if students_count > current_capacity:
+                return True
+        
+        return False
+    
+    def get_row_patterns(self):
+        """Obtiene patrones de fila desde design_config"""
+        config = self.get_design_config()
+        return config.get('row_patterns', {})
+    
+    def set_row_patterns(self, patterns):
+        """Guarda patrones de fila en design_config"""
+        config = self.get_design_config()
+        config['row_patterns'] = patterns
+        self.set_design_config(config)
+
 class TemplateCell(db.Model):
     __tablename__ = 'template_cells'
     
@@ -81,4 +127,3 @@ class TemplateRange(db.Model):
     
     def __repr__(self):
         return f'<TemplateRange {self.range_name}: {self.start_cell}>'
-

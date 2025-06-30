@@ -1,5 +1,5 @@
 from openpyxl import load_workbook
-from app.models.templates import ExcelTemplate, TemplateCell, TemplateStyle
+from app.models.templates import ExcelTemplate, TemplateCell, TemplateStyle, TemplateRange
 from app.services.template_mapper import TemplateMapper
 from app import db
 import json
@@ -24,7 +24,7 @@ class TemplateService:
             TemplateCell.query.filter_by(template_id=template_id).delete()
             TemplateStyle.query.filter_by(template_id=template_id).delete()
             
-            print(f"🔍 Analizando estructura del template {template_id}")
+            # print(f"🔍 Analizando estructura del template {template_id}")
             
             # Analizar celdas con contenido
             for row in ws.iter_rows():
@@ -34,7 +34,7 @@ class TemplateService:
                         cell_data_type = TemplateService._determine_cell_data_type(cell)
                         formatted_value = TemplateService._format_cell_value(cell)
                         
-                        print(f"Celda: {cell.coordinate}, Valor: {cell.value}, Tipo: {cell_data_type}, Formateado: {formatted_value}")
+                        # print(f"Celda: {cell.coordinate}, Valor: {cell.value}, Tipo: {cell_data_type}, Formateado: {formatted_value}")
                         
                         # Crear celda de plantilla
                         template_cell = TemplateCell(
@@ -169,7 +169,7 @@ class TemplateService:
         """Extrae los estilos de una celda"""
         style_config = {}
         
-        print(f"🔍 DEBUG: Extrayendo estilo de celda {cell.coordinate}")
+        # print(f"🔍 DEBUG: Extrayendo estilo de celda {cell.coordinate}")
         
         try:
             # Fuente
@@ -180,7 +180,7 @@ class TemplateService:
                 try:
                     if cell.font.color and hasattr(cell.font.color, 'rgb') and cell.font.color.rgb:
                         color_value = str(cell.font.color.rgb)
-                        print(f"   🎨 Color raw de fuente: {color_value}")
+                        # print(f"   🎨 Color raw de fuente: {color_value}")
                         
                         # Manejar diferentes formatos
                         if color_value.startswith('FF') and len(color_value) == 8:
@@ -192,7 +192,7 @@ class TemplateService:
                         else:
                             font_color = '000000'  # Default si no se puede parsear
                             
-                        print(f"   📝 Color procesado de fuente: {font_color}")
+                        # print(f"   📝 Color procesado de fuente: {font_color}")
                             
                 except Exception as font_error:
                     print(f"   ❌ Error procesando color de fuente: {font_error}")
@@ -205,7 +205,7 @@ class TemplateService:
                     'italic': cell.font.italic or False,
                     'color': font_color
                 }
-                print(f"   📝 Font extraída: {style_config['font']}")
+                # print(f"   📝 Font extraída: {style_config['font']}")
             
             # ARREGLAR EXTRACCIÓN DE RELLENO
             if cell.fill and cell.fill.start_color:
@@ -214,7 +214,7 @@ class TemplateService:
                     
                     if hasattr(cell.fill.start_color, 'rgb') and cell.fill.start_color.rgb:
                         fill_value = str(cell.fill.start_color.rgb)
-                        print(f"   🎨 Fill raw: {fill_value}")
+                        # print(f"   🎨 Fill raw: {fill_value}")
                         
                         # Manejar diferentes formatos
                         if fill_value.startswith('FF') and len(fill_value) == 8:
@@ -226,14 +226,14 @@ class TemplateService:
                         else:
                             fill_color = 'FFFFFF'  # Default blanco
                             
-                        print(f"   🎨 Fill procesado: {fill_color}")
+                        # print(f"   🎨 Fill procesado: {fill_color}")
                     
                     # SOLO guardar si NO es blanco
                     if fill_color.upper() not in ['FFFFFF', 'FFFFFFFF']:
                         style_config['fill'] = {
                             'color': fill_color
                         }
-                        print(f"   ✅ Fill guardado: {fill_color}")
+                        # print(f"   ✅ Fill guardado: {fill_color}")
                     else:
                         print(f"   ⚪ Fill blanco ignorado")
                         
@@ -308,7 +308,7 @@ class TemplateService:
                     
                     if border_config:
                         style_config['border'] = border_config
-                        print(f"   🔲 Border extraído: {border_config}")
+                        # print(f"   🔲 Border extraído: {border_config}")
                         
                 except Exception as border_error:
                     print(f"   ❌ Error procesando bordes: {border_error}")
@@ -324,7 +324,7 @@ class TemplateService:
                 # 🔄 CAPTURAR ORIENTACIÓN DE TEXTO (VERTICAL/HORIZONTAL)
                 if cell.alignment.text_rotation is not None:
                     alignment_config['text_rotation'] = cell.alignment.text_rotation
-                    print(f"   🔄 Rotación de texto detectada: {cell.alignment.text_rotation}°")
+                    # print(f"   🔄 Rotación de texto detectada: {cell.alignment.text_rotation}°")
                 
                 # Capturar shrink_to_fit si existe
                 if cell.alignment.shrink_to_fit is not None:
@@ -335,10 +335,10 @@ class TemplateService:
                     alignment_config['indent'] = cell.alignment.indent
                 
                 style_config['alignment'] = alignment_config
-                print(f"   📐 Alignment extraído: {alignment_config}")
+                # print(f"   📐 Alignment extraído: {alignment_config}")
             
             result = json.dumps(style_config) if style_config else None
-            print(f"   ✅ Estilo final para {cell.coordinate}: {result}")
+            # print(f"   ✅ Estilo final para {cell.coordinate}: {result}")
             
             return result
             
@@ -488,3 +488,272 @@ class TemplateService:
         ws['A2'] = "Funcionalidad en desarrollo"
         
         return wb
+
+    @staticmethod
+    def detect_data_ranges_from_template(template_id):
+        """Detecta rangos de datos iterativos analizando las celdas existentes"""
+        
+        try:
+            # Obtener todas las celdas del template
+            cells = TemplateCell.query.filter_by(template_id=template_id).all()
+            
+            # Agrupar por filas para detectar patrones
+            rows_data = {}
+            for cell in cells:
+                row_num = int(''.join(filter(str.isdigit, cell.cell_address)))
+                col_letter = ''.join(filter(str.isalpha, cell.cell_address))
+                
+                if row_num not in rows_data:
+                    rows_data[row_num] = {}
+                
+                rows_data[row_num][col_letter] = {
+                    'data_type': cell.data_type,
+                    'cell_type': cell.cell_type,
+                    'style_config': cell.style_config
+                }
+            
+            # Detectar rangos que parecen ser listas de estudiantes
+            student_ranges = TemplateService._detect_student_ranges(rows_data)
+            
+            # Crear/actualizar TemplateRange entries
+            for range_info in student_ranges:
+                existing_range = TemplateRange.query.filter_by(
+                    template_id=template_id,
+                    range_name=range_info['name']
+                ).first()
+                
+                if existing_range:
+                    # Actualizar existente
+                    existing_range.start_cell = range_info['start_cell']
+                    existing_range.end_cell = range_info['end_cell']
+                    existing_range.data_mapping = json.dumps(range_info['mapping'])
+                else:
+                    # Crear nuevo
+                    new_range = TemplateRange(
+                        template_id=template_id,
+                        range_name=range_info['name'],
+                        start_cell=range_info['start_cell'],
+                        end_cell=range_info['end_cell'],
+                        range_type='students',
+                        data_mapping=json.dumps(range_info['mapping'])
+                    )
+                    db.session.add(new_range)
+            
+            db.session.commit()
+            # print(f"✅ Rangos detectados y guardados para template {template_id}")
+            return student_ranges
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ Error detectando rangos: {e}")
+            return []
+
+    @staticmethod
+    def _detect_student_ranges(rows_data):
+        """Detecta rangos que contienen datos de estudiantes"""
+        
+        ranges = []
+        sorted_rows = sorted(rows_data.keys())
+        
+        # Buscar secuencias consecutivas de filas con estructura similar
+        current_sequence = []
+        current_structure = None
+        
+        for row_num in sorted_rows:
+            row_structure = TemplateService._get_row_data_types(rows_data[row_num])
+            
+            if current_structure is None:
+                current_structure = row_structure
+                current_sequence = [row_num]
+            elif TemplateService._structures_similar(current_structure, row_structure):
+                current_sequence.append(row_num)
+            else:
+                # Fin de secuencia - evaluar si es un rango de datos
+                if len(current_sequence) >= 2:  # Al menos 2 filas
+                    range_info = TemplateService._create_range_info(
+                        current_sequence, current_structure, rows_data
+                    )
+                    if range_info:
+                        ranges.append(range_info)
+                
+                # Iniciar nueva secuencia
+                current_structure = row_structure
+                current_sequence = [row_num]
+        
+        # No olvidar la última secuencia
+        if len(current_sequence) >= 2:
+            range_info = TemplateService._create_range_info(
+                current_sequence, current_structure, rows_data
+            )
+            if range_info:
+                ranges.append(range_info)
+        
+        return ranges
+
+    @staticmethod
+    def _get_row_data_types(row_data):
+        """Extrae los tipos de datos de una fila"""
+        structure = {}
+        for col_letter, cell_data in row_data.items():
+            structure[col_letter] = cell_data.get('data_type', 'text')
+        return structure
+
+    @staticmethod
+    def _structures_similar(struct1, struct2):
+        """Verifica si dos estructuras son similares (mismo patrón de columnas)"""
+        return set(struct1.keys()) == set(struct2.keys())
+
+    @staticmethod
+    def _create_range_info(row_sequence, structure, rows_data):
+        """Crea información del rango detectado"""
+        
+        start_row = min(row_sequence)
+        end_row = max(row_sequence)
+        
+        # Determinar columnas del rango
+        columns = sorted(structure.keys())
+        start_col = columns[0] if columns else 'A'
+        end_col = columns[-1] if columns else 'A'
+        
+        # Crear mapeo de columnas
+        mapping = {}
+        sample_row_data = rows_data[end_row]  # Usar última fila como muestra
+        
+        for col_letter in columns:
+            cell_data = sample_row_data.get(col_letter, {})
+            data_type = cell_data.get('data_type', 'text')
+            mapping[col_letter] = data_type
+        
+        return {
+            'name': f'students_range_{start_row}_{end_row}',
+            'start_cell': f'{start_col}{start_row}',
+            'end_cell': f'{end_col}{end_row}',
+            'mapping': mapping,
+            'sample_row': end_row,  # Fila que usaremos como plantilla para replicar
+            'structure': structure
+        }
+
+    def _save_row_patterns(template_id, patterns):
+        """Guarda los patrones detectados usando design_config existente"""
+        
+        template = ExcelTemplate.query.get(template_id)
+        if template:
+            template.set_row_patterns(patterns)  # Usa el método que agregamos
+            db.session.commit()
+            print(f"✅ Patrones guardados para template {template_id}")
+
+
+    @staticmethod
+    def extend_template_ranges(template_id, data):
+        """Extiende los rangos del template según los datos requeridos"""
+        
+        try:
+            template = ExcelTemplate.query.get(template_id)
+            if not template:
+                return False
+            
+            # Obtener patrones usando el método del modelo
+            patterns = template.get_row_patterns()
+            
+            if not patterns:
+                print("⚠️ No hay patrones de fila guardados")
+                return False
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ Error extendiendo rangos: {e}")
+            return False
+
+    @staticmethod
+    def _extend_student_range(template_range, required_students):
+        """Extiende un rango específico de estudiantes"""
+        
+        # Extraer información del rango actual
+        start_row = int(''.join(filter(str.isdigit, template_range.start_cell)))
+        end_row = int(''.join(filter(str.isdigit, template_range.end_cell))) if template_range.end_cell else start_row
+        
+        current_capacity = end_row - start_row + 1
+        
+        if required_students <= current_capacity:
+            print(f"✅ Rango {template_range.range_name} ya tiene capacidad suficiente")
+            return True
+        
+        # Necesitamos más filas
+        additional_rows = required_students - current_capacity
+        new_end_row = end_row + additional_rows
+        
+        print(f"🔄 Extendiendo rango {template_range.range_name}: {additional_rows} filas adicionales")
+        
+        # Obtener mapeo de columnas
+        mapping = json.loads(template_range.data_mapping) if template_range.data_mapping else {}
+        
+        # Replicar estilos de la última fila para las nuevas filas
+        for new_row in range(end_row + 1, new_end_row + 1):
+            success = TemplateService._replicate_row_styles_from_range(
+                template_range.template_id,
+                end_row,  # Fila fuente (última fila existente)
+                new_row,  # Fila destino
+                mapping
+            )
+            
+            if not success:
+                print(f"❌ Error replicando fila {new_row}")
+                return False
+        
+        # Actualizar el rango
+        end_col = ''.join(filter(str.isalpha, template_range.end_cell)) if template_range.end_cell else 'A'
+        template_range.end_cell = f"{end_col}{new_end_row}"
+        
+        return True
+
+    @staticmethod
+    def _replicate_row_styles_from_range(template_id, source_row, target_row, column_mapping):
+        """Replica estilos de una fila a otra dentro de un rango"""
+        
+        try:
+            # Obtener celdas de la fila fuente
+            source_cells = TemplateCell.query.filter_by(template_id=template_id).all()
+            
+            for source_cell in source_cells:
+                cell_row = int(''.join(filter(str.isdigit, source_cell.cell_address)))
+                if cell_row != source_row:
+                    continue
+                
+                col_letter = ''.join(filter(str.isalpha, source_cell.cell_address))
+                
+                # Solo replicar columnas que están en el mapeo
+                if col_letter not in column_mapping:
+                    continue
+                
+                target_address = f"{col_letter}{target_row}"
+                
+                # Verificar si ya existe
+                existing_cell = TemplateCell.query.filter_by(
+                    template_id=template_id,
+                    cell_address=target_address
+                ).first()
+                
+                if existing_cell:
+                    # Actualizar existente
+                    existing_cell.style_config = source_cell.style_config
+                    existing_cell.data_type = column_mapping[col_letter]
+                    existing_cell.cell_type = 'data'  # Marcar como celda de datos
+                else:
+                    # Crear nueva
+                    new_cell = TemplateCell(
+                        template_id=template_id,
+                        cell_address=target_address,
+                        cell_type='data',
+                        data_type=column_mapping[col_letter],
+                        default_value='',
+                        style_config=source_cell.style_config
+                    )
+                    db.session.add(new_cell)
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error replicando estilos: {e}")
+            return False
+        
+    

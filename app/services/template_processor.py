@@ -1,8 +1,9 @@
 from openpyxl import load_workbook, Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border
-from app.models.templates import ExcelTemplate, TemplateCell, TemplateRange, TemplateStyle
+from app.models.templates import ExcelTemplate, TemplateCell, TemplateRange, TemplateStyle, TemplateRange
 from app.models.academic import Student, Section, Subject, Period, TeacherAssignment
 from app.models.grades import FinalGrade, StudentGrade
+from app.services.template_service import TemplateService
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from app import db
 from io import BytesIO
@@ -69,7 +70,6 @@ class TemplateProcessor:
         output.seek(0)
         
         return output
-
 
     def process_template(self, context):
             """
@@ -456,41 +456,28 @@ class TemplateProcessor:
         individual_cells = TemplateCell.query.filter_by(
             template_id=self.template.id
         ).all()
-        
-        # print(f"=== DEBUG PROCESANDO CELDAS ===")
-        # print(f"Template ID: {self.template.id}")
-        # print(f"Total celdas encontradas: {len(individual_cells)}")
+    
         
         for cell in individual_cells:
-            # print(f"\nProcesando celda {cell.cell_address}:")
-            # print(f"  - Data Type: '{cell.data_type}'")
-            # print(f"  - Default Value: '{cell.default_value}'")
-            # print(f"  - Cell Type: '{cell.cell_type}'")
             
             try:
                 value = self._get_cell_value(cell, context)
-                # print(f"  - Valor calculado: '{value}'")
                 
                 if value is not None and value != '':
                     self.worksheet[cell.cell_address] = value
-                    # print(f"  - ✓ Valor '{value}' asignado a celda {cell.cell_address}")
                     
                     # Aplicar estilo si existe
                     if cell.style_config:
-                        # print(f"  - Aplicando estilo...")
                         self._apply_cell_style(
                             self.worksheet[cell.cell_address], 
                             cell.style_config
                         )
-                        # print(f"  - ✓ Estilo aplicado")
                     
             except Exception as e:
                 print(f"  - ✗ Error procesando celda: {e}")
                 import traceback
                 traceback.print_exc()
                 continue
-        
-        print(f"=== FIN DEBUG CELDAS ===")
     
     def _process_ranges(self, context):
         """Procesar rangos iterativos"""
@@ -927,3 +914,24 @@ class TemplateProcessor:
         
         return row_num, col_num
     
+    def process_template_with_auto_extension(self, template_id, data):
+        """Procesa template con extensión automática de rangos"""
+        
+        try:
+            print(f"🔄 Procesando template {template_id} con auto-extensión")
+            
+            # 1. Detectar rangos si no existen
+            existing_ranges = TemplateRange.query.filter_by(template_id=template_id).count()
+            if existing_ranges == 0:
+                print("🔍 Detectando rangos automáticamente...")
+                TemplateService.detect_data_ranges_from_template(template_id)
+            
+            # 2. Extender rangos según los datos
+            TemplateService.extend_template_ranges(template_id, data)
+            
+            # 3. Procesar normalmente
+            return self.process_template(template_id, data)
+            
+        except Exception as e:
+            print(f"❌ Error en process_template_with_auto_extension: {e}")
+            raise e
