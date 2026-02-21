@@ -1900,40 +1900,33 @@ def statistics():
 def evaluations():
 
     print(f"=== RUTA LLAMADA: {request.url} ===")
-    print(f"Método: {request.method}")
-    print(f"Args completos: {dict(request.args)}")
-    print(f"Referrer: {request.referrer}")
-
+    
     try:
-        print("=== DEBUG BACKEND ===")
-        
         # Obtener filtros
         subject_id = request.args.get('subject_id', type=int)
         period_id = request.args.get('period_id', type=int)
         grade_id = request.args.get('grade_id', type=int)
         section_id = request.args.get('section_id', type=int)
+        page = request.args.get('page', 1, type=int)
         
-        print(f"Filtros: subject_id={subject_id}, period_id={period_id}, grade_id={grade_id}, section_id={section_id}")
+        # Query base
+        query = GradeType.query
         
-        # Query base - SIEMPRE obtener todas las evaluaciones primero
-        grade_types = GradeType.query.all()
-        print(f"Total evaluaciones sin filtros: {len(grade_types)}")
+        # Aplicar filtros
+        if subject_id:
+            query = query.filter(GradeType.subject_id == subject_id)
+        if period_id:
+            query = query.filter(GradeType.period_id == period_id)
+        if section_id:
+            query = query.filter(GradeType.section_id == section_id)
+        elif grade_id:
+            query = query.join(Section).filter(Section.grade_id == grade_id)
         
-        # Aplicar filtros solo si se proporcionan
-        if subject_id or period_id or grade_id or section_id:
-            query = GradeType.query
-            
-            if subject_id:
-                query = query.filter(GradeType.subject_id == subject_id)
-            if period_id:
-                query = query.filter(GradeType.period_id == period_id)
-            if section_id:
-                query = query.filter(GradeType.section_id == section_id)
-            elif grade_id:
-                query = query.join(Section).filter(Section.grade_id == grade_id)
-            
-            grade_types = query.all()
-            print(f"Evaluaciones después de filtros: {len(grade_types)}")
+        # Paginar: 15 evaluaciones por página
+        pagination = query.order_by(GradeType.created_at.desc()).paginate(
+            page=page, per_page=15, error_out=False
+        )
+        grade_types = pagination.items
         
         # Obtener datos para filtros y formularios
         subjects = Subject.query.order_by(Subject.name).all()
@@ -1941,11 +1934,10 @@ def evaluations():
         grades = Grade.query.order_by(Grade.level, Grade.name).all()
         teachers = Teacher.query.join(User).order_by(User.last_name, User.first_name).all()
         
-        print(f"Enviando {len(grade_types)} evaluaciones al template")
-        
         return render_template(
             'admin/grade_types.html',
             grade_types=grade_types,
+            pagination=pagination,
             subjects=subjects,
             academic_years=academic_years,
             grades=grades,

@@ -174,7 +174,7 @@
                     <ul class="pagination justify-content-center">
                         {% if pagination.has_prev %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('admin.assignments', page=pagination.prev_num, **request.args) }}" aria-label="Anterior">
+                            <a class="page-link" href="{{ url_for('admin.assignments', page=pagination.prev_num, academic_year=request.args.get('academic_year'), teacher=request.args.get('teacher'), subject=request.args.get('subject'), section=request.args.get('section')) }}" aria-label="Anterior">
                                 <span aria-hidden="true">&laquo;</span>
                             </a>
                         </li>
@@ -186,27 +186,27 @@
                         </li>
                         {% endif %}
                         
-                        {% for page in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
-                            {% if page %}
-                                {% if page == pagination.page %}
+                        {% for page_num in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                            {% if page_num %}
+                                {% if page_num == pagination.page %}
                                 <li class="page-item active">
-                                    <a class="page-link" href="#">{{ page }}</a>
+                                    <a class="page-link" href="#">{{ page_num }}</a>
                                 </li>
                                 {% else %}
                                 <li class="page-item">
-                                    <a class="page-link" href="{{ url_for('admin.assignments', page=page, **request.args) }}">{{ page }}</a>
+                                    <a class="page-link" href="{{ url_for('admin.assignments', page=page_num, academic_year=request.args.get('academic_year'), teacher=request.args.get('teacher'), subject=request.args.get('subject'), section=request.args.get('section')) }}">{{ page_num }}</a>
                                 </li>
                                 {% endif %}
                             {% else %}
-                                <li class="page-item disabled">
-                                    <a class="page-link" href="#">...</a>
-                                </li>
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">...</a>
+                            </li>
                             {% endif %}
                         {% endfor %}
                         
                         {% if pagination.has_next %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('admin.assignments', page=pagination.next_num, **request.args) }}" aria-label="Siguiente">
+                            <a class="page-link" href="{{ url_for('admin.assignments', page=pagination.next_num, academic_year=request.args.get('academic_year'), teacher=request.args.get('teacher'), subject=request.args.get('subject'), section=request.args.get('section')) }}" aria-label="Siguiente">
                                 <span aria-hidden="true">&raquo;</span>
                             </a>
                         </li>

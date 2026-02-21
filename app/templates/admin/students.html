@@ -190,7 +190,7 @@
             <ul class="pagination justify-content-center">
                 {% if pagination.has_prev %}
                 <li class="page-item">
-                    <a class="page-link" href="{{ url_for('admin.students', page=pagination.prev_num, **request.args) }}" aria-label="Anterior">
+                    <a class="page-link" href="{{ url_for('admin.students', page=pagination.prev_num, grade_id=request.args.get('grade_id'), section_id=request.args.get('section_id'), search=request.args.get('search')) }}" aria-label="Anterior">
                         <span aria-hidden="true">&laquo;</span>
                     </a>
                 </li>
@@ -202,15 +202,15 @@
                 </li>
                 {% endif %}
                 
-                {% for page in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
-                    {% if page %}
-                        {% if page == pagination.page %}
+                {% for page_num in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                    {% if page_num %}
+                        {% if page_num == pagination.page %}
                         <li class="page-item active">
-                            <a class="page-link" href="#">{{ page }}</a>
+                            <a class="page-link" href="#">{{ page_num }}</a>
                         </li>
                         {% else %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('admin.students', page=page, **request.args) }}">{{ page }}</a>
+                            <a class="page-link" href="{{ url_for('admin.students', page=page_num, grade_id=request.args.get('grade_id'), section_id=request.args.get('section_id'), search=request.args.get('search')) }}">{{ page_num }}</a>
                         </li>
                         {% endif %}
                     {% else %}
@@ -222,7 +222,7 @@
                 
                 {% if pagination.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="{{ url_for('admin.students', page=pagination.next_num, **request.args) }}" aria-label="Siguiente">
+                    <a class="page-link" href="{{ url_for('admin.students', page=pagination.next_num, grade_id=request.args.get('grade_id'), section_id=request.args.get('section_id'), search=request.args.get('search')) }}" aria-label="Siguiente">
                         <span aria-hidden="true">&raquo;</span>
                     </a>
                 </li>
