@@ -35,9 +35,36 @@ def login():
             if demo_user and demo_user.role == 'admin':
                 login_user(demo_user, remember=True)
                 return redirect(url_for('admin.dashboard'))
+            else:
+                # Si no existe, podemos crearlo automáticamente
+                if not demo_user:
+                    current_app.logger.warning("Usuario demo no encontrado en BD. Intentando crearlo...")
+                    try:
+                        demo_user = User(
+                            identification_number='99999999',
+                            email='demo@example.com',
+                            username='demo',
+                            first_name='Demo',
+                            last_name='Admin',
+                            role='admin',
+                            is_active=True,
+                            is_registered=True
+                        )
+                        demo_user.set_password('demo123')
+                        db.session.add(demo_user)
+                        db.session.commit()
+                        current_app.logger.info("Usuario demo creado exitosamente")
+                        login_user(demo_user, remember=True)
+                        return redirect(url_for('admin.dashboard'))
+                    except Exception as create_error:
+                        current_app.logger.error(f"Error al crear usuario demo: {str(create_error)}")
+                        flash(f'Error al crear usuario demo: {str(create_error)}', 'danger')
+                else:
+                    current_app.logger.warning(f"Usuario demo encontrado pero rol es '{demo_user.role}' (no admin)")
+                    flash('Error: Usuario demo no es administrador', 'danger')
         except Exception as e:
-            current_app.logger.error(f"Error en login automático DEMO: {str(e)}")
-            flash('Error en modo demo', 'danger')
+            current_app.logger.error(f"Error en login automático DEMO: {str(e)}", exc_info=True)
+            flash(f'Error en modo demo: {str(e)}', 'danger')
     
     # Modo normal
     if current_user.is_authenticated:
