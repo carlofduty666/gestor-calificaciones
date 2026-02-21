@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from app.models.users import User
 from app.models.academic import Admin
@@ -12,6 +12,34 @@ auth = Blueprint('auth', __name__)
 
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
+    """
+    Ruta de login con soporte para DEMO_MODE.
+    
+    EN DEMO_MODE (IMPORTANTE):
+    - SIEMPRE hacer logout de cualquier sesión previa
+    - Hacer login automático con el usuario demo (admin)
+    - Redirigir directamente a /admin/dashboard
+    
+    En modo normal:
+    - Mostrar formulario de login
+    - Validar credenciales y hacer login
+    """
+    # En DEMO_MODE, hacer logout de sesión previa y login automático con demo
+    if current_app.config.get('DEMO_MODE'):
+        # PRIMERO: hacer logout de cualquier sesión previa
+        logout_user()
+        
+        # LUEGO: hacer login con el usuario demo
+        try:
+            demo_user = User.query.filter_by(email='demo@example.com').first()
+            if demo_user and demo_user.role == 'admin':
+                login_user(demo_user, remember=True)
+                return redirect(url_for('admin.dashboard'))
+        except Exception as e:
+            current_app.logger.error(f"Error en login automático DEMO: {str(e)}")
+            flash('Error en modo demo', 'danger')
+    
+    # Modo normal
     if current_user.is_authenticated:
         if current_user.is_admin():
             return redirect(url_for('admin.dashboard'))
@@ -20,19 +48,23 @@ def login():
             
     form = LoginForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(identification_number=form.identification_number.data).first()
-        if user is None or not user.check_password(form.password.data) or not user.is_registered:
-            flash('Cédula o contraseña incorrectos', 'danger')
+        try:
+            user = User.query.filter_by(identification_number=form.identification_number.data).first()
+            if user is None or not user.check_password(form.password.data) or not user.is_registered:
+                flash('Cédula o contraseña incorrectos', 'danger')
+                return redirect(url_for('auth.login'))
+                
+            login_user(user, remember=form.remember_me.data)
+            next_page = request.args.get('next')
+            if not next_page or '//' in next_page:
+                if user.is_admin():
+                    next_page = url_for('admin.dashboard')
+                else:
+                    next_page = url_for('teacher.dashboard')
+            return redirect(next_page)
+        except Exception as e:
+            flash(f'Error al iniciar sesión: {str(e)}', 'danger')
             return redirect(url_for('auth.login'))
-            
-        login_user(user, remember=form.remember_me.data)
-        next_page = request.args.get('next')
-        if not next_page or '//' in next_page:
-            if user.is_admin():
-                next_page = url_for('admin.dashboard')
-            else:
-                next_page = url_for('teacher.dashboard')
-        return redirect(next_page)
         
     return render_template('auth/login.html', title='Iniciar Sesión', form=form)
 

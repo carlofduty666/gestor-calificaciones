@@ -19,29 +19,6 @@ def create_app(config_class=Config):
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
-    
-    # En modo DEMO, crear usuario automático
-    with app.app_context():
-        if app.config.get('DEMO_MODE'):
-            from app.models.users import User
-            demo_user = User.query.filter_by(email='demo@example.com').first()
-            if not demo_user:
-                demo_user = User(
-                    email='demo@example.com',
-                    username='demo',
-                    first_name='Demo',
-                    last_name='Admin',
-                    role='admin',
-                    is_active=True,
-                    is_registered=True
-                )
-                demo_user.set_password('demo123')
-                db.session.add(demo_user)
-                try:
-                    db.session.commit()
-                except:
-                    db.session.rollback()
-                    pass
 
     @app.context_processor
     def inject_now():
@@ -72,11 +49,47 @@ def create_app(config_class=Config):
     from app.routes.data_import import data_import as data_import_bp
     app.register_blueprint(data_import_bp, url_prefix='/import')
     
-    # Ruta raíz que redirige a admin dashboard
-    from flask import redirect, url_for
+    # Ruta raíz que maneja DEMO_MODE
+    from flask import redirect, url_for, current_app
+    from flask_login import login_user, current_user, logout_user
+    
     @app.route('/')
     def index():
-        return redirect(url_for('admin.dashboard'))
+        """
+        Ruta raíz que maneja la redirección según el estado de autenticación y DEMO_MODE.
+        
+        EN DEMO_MODE (IMPORTANTE):
+        - SIEMPRE hacer logout de cualquier sesión previa
+        - Hacer login automático con el usuario demo (admin)
+        - Redirigir a /admin/dashboard
+        
+        En modo normal:
+        - Si autenticado: redirigir según rol (admin o teacher)
+        - Si no autenticado: redirigir a login
+        """
+        # 1. En DEMO_MODE, SIEMPRE asegurar que es el usuario demo
+        if current_app.config.get('DEMO_MODE'):
+            # Primero, hacer logout de cualquier sesión previa
+            logout_user()
+            
+            # Luego, hacer login con el usuario demo
+            try:
+                demo_user = User.query.filter_by(email='demo@example.com').first()
+                if demo_user and demo_user.role == 'admin':
+                    login_user(demo_user, remember=True)
+                    return redirect(url_for('admin.dashboard'))
+            except Exception as e:
+                current_app.logger.error(f"Error en login automático DEMO: {str(e)}")
+        
+        # 2. Si está autenticado (en modo normal), redirigir al dashboard correspondiente
+        if current_user.is_authenticated:
+            if current_user.is_admin():
+                return redirect(url_for('admin.dashboard'))
+            else:
+                return redirect(url_for('teacher.dashboard'))
+        
+        # 3. Si no está autenticado, redirigir a login
+        return redirect(url_for('auth.login'))
     
     # Crear directorios necesarios
     import os

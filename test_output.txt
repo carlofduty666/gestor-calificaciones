@@ -1,0 +1,52 @@
+================================================================================
+[PRUEBA] FLUJO CORREGIDO: logout + login en DEMO_MODE
+================================================================================
+
+[INFO] Usuario demo: demo@example.com (admin)
+[INFO] Usuario previo (simulado): profesor1@example.com (teacher)
+
+================================================================================
+[TEST 1] Con sesi≤n previa de TEACHER, acceso a /
+================================================================================
+
+1. SIMULAR SESI╙N PREVIA DE TEACHER:
+   Logueado como: profesor1@example.com (teacher)
+   is_admin(): False
+
+2. EJECUTANDO NUEVA L╙GICA DE index():
+   DEMO_MODE activo
+   - logout_user() ejecutado
+   - login_user(demo_user) ejecutado
+
+3. ESTADO FINAL DESPU╔S DE logout + login:
+   current_user.is_authenticated: True
+   current_user.email: demo@example.com
+   current_user.role: admin
+   current_user.is_admin(): True
+
+4. REDIRECCI╙N:
+   [OK] REDIRIGIR A: /admin/dashboard
+
+================================================================================
+[TEST 2] Con sesi≤n previa de TEACHER, acceso a /auth/login
+================================================================================
+
+1. SIMULAR SESI╙N PREVIA DE TEACHER:
+   Logueado como: profesor1@example.com (teacher)
+
+2. EJECUTANDO NUEVA L╙GICA DE login():
+   DEMO_MODE activo
+   - logout_user() ejecutado
+   - login_user(demo_user) ejecutado
+
+3. ESTADO FINAL:
+   current_user.email: demo@example.com
+   current_user.role: admin
+   current_user.is_admin(): True
+
+4. REDIRECCI╙N:
+   [OK] REDIRIGIR A: /admin/dashboard
+
+================================================================================
+[OK] PRUEBA COMPLETADA - El nuevo flujo funciona correctamente!
+================================================================================

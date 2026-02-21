@@ -22,3 +22,6 @@ class Config:
     LANGUAGES = ['es']
     UPLOAD_FOLDER = os.path.join(basedir, 'app/static/uploads')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
+    
+    # DEMO MODE - Permite acceso público sin login
+    DEMO_MODE = os.environ.get('DEMO_MODE', 'false').lower() in ['true', '1', 'yes']

@@ -19,13 +19,11 @@ admin = Blueprint('admin', __name__)
 
 @admin.before_request
 def check_admin():
-    # En modo DEMO, login automático como admin sin requiere autenticación
+    # En modo DEMO, permitir acceso si el usuario está autenticado como demo
     if current_app.config.get('DEMO_MODE'):
-        demo_user = User.query.filter_by(email='demo@example.com').first()
-        if demo_user and not current_user.is_authenticated:
-            login_user(demo_user)
-        return  # Permitir acceso
-
+        if current_user.is_authenticated and current_user.role == 'admin':
+            return  # Permitir acceso
+    
     # Modo normal: requerir autenticación y privilegios de admin
     if not current_user.is_authenticated or not current_user.is_admin():
         flash('Acceso no autorizado. Se requieren privilegios de administrador.', 'danger')
