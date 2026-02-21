@@ -19,6 +19,29 @@ def create_app(config_class=Config):
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
+    
+    # En modo DEMO, crear usuario automático
+    with app.app_context():
+        if app.config.get('DEMO_MODE'):
+            from app.models.users import User
+            demo_user = User.query.filter_by(email='demo@example.com').first()
+            if not demo_user:
+                demo_user = User(
+                    email='demo@example.com',
+                    username='demo',
+                    first_name='Demo',
+                    last_name='Admin',
+                    role='admin',
+                    is_active=True,
+                    is_registered=True
+                )
+                demo_user.set_password('demo123')
+                db.session.add(demo_user)
+                try:
+                    db.session.commit()
+                except:
+                    db.session.rollback()
+                    pass
 
     @app.context_processor
     def inject_now():
@@ -48,6 +71,12 @@ def create_app(config_class=Config):
     
     from app.routes.data_import import data_import as data_import_bp
     app.register_blueprint(data_import_bp, url_prefix='/import')
+    
+    # Ruta raíz que redirige a admin dashboard
+    from flask import redirect, url_for
+    @app.route('/')
+    def index():
+        return redirect(url_for('admin.dashboard'))
     
     # Crear directorios necesarios
     import os

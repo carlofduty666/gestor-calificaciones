@@ -32,3 +32,6 @@ class Config:
     
     # Configuración de logging
     LOG_TO_STDOUT = os.environ.get('LOG_TO_STDOUT')
+    
+    # DEMO MODE - Permite acceso público sin login
+    DEMO_MODE = os.environ.get('DEMO_MODE', 'false').lower() in ['true', '1', 'yes']

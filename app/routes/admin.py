@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file, jsonify, current_app
 from io import BytesIO
 import pandas as pd
-from flask_login import login_required, current_user
+from flask_login import login_required, current_user, login_user
 from flask_wtf import FlaskForm
 from datetime import datetime 
 from wtforms import StringField, TextAreaField, IntegerField, SelectField, BooleanField, PasswordField, SubmitField, DateField
@@ -19,6 +19,14 @@ admin = Blueprint('admin', __name__)
 
 @admin.before_request
 def check_admin():
+    # En modo DEMO, login automático como admin sin requiere autenticación
+    if current_app.config.get('DEMO_MODE'):
+        demo_user = User.query.filter_by(email='demo@example.com').first()
+        if demo_user and not current_user.is_authenticated:
+            login_user(demo_user)
+        return  # Permitir acceso
+
+    # Modo normal: requerir autenticación y privilegios de admin
     if not current_user.is_authenticated or not current_user.is_admin():
         flash('Acceso no autorizado. Se requieren privilegios de administrador.', 'danger')
         return redirect(url_for('auth.login'))
