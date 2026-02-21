@@ -14,4 +14,5 @@ Pillow>=10.0.1
 numpy>=1.26.0
 gunicorn==21.2.0
 psycopg[binary]
+email-validator>=2.0.0
 
