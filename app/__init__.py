@@ -56,59 +56,16 @@ def create_app(config_class=Config):
     @app.route('/')
     def index():
         """
-        Ruta raíz que maneja la redirección según el estado de autenticación y DEMO_MODE.
+        Ruta raíz que maneja la redirección según DEMO_MODE.
         
-        EN DEMO_MODE (IMPORTANTE):
-        - SIEMPRE hacer logout de cualquier sesión previa
-        - Hacer login automático con el usuario demo (admin)
-        - Si el usuario demo no existe, crearlo automáticamente
-        - Redirigir a /admin/dashboard
-        
-        En modo normal:
-        - Si autenticado: redirigir según rol (admin o teacher)
-        - Si no autenticado: redirigir a login
+        EN DEMO_MODE: Ir directamente al dashboard sin autenticación
+        En modo normal: Redirigir a login
         """
-        # 1. En DEMO_MODE, SIEMPRE asegurar que es el usuario demo
+        # DEMO MODE: Ir directamente al dashboard (sin crear usuario ni autenticación)
         if current_app.config.get('DEMO_MODE'):
-            # Primero, hacer logout de cualquier sesión previa
-            logout_user()
-            
-            # Luego, hacer login con el usuario demo (o crear si no existe)
-            try:
-                demo_user = User.query.filter_by(email='demo@example.com').first()
-                
-                if not demo_user:
-                    # Crear usuario demo automáticamente
-                    app.logger.info("Usuario demo no encontrado. Creando...")
-                    demo_user = User(
-                        identification_number='99999999',
-                        email='demo@example.com',
-                        username='demo',
-                        first_name='Demo',
-                        last_name='Admin',
-                        role='admin',
-                        is_active=True,
-                        is_registered=True
-                    )
-                    demo_user.set_password('demo123')
-                    db.session.add(demo_user)
-                    db.session.commit()
-                    app.logger.info("Usuario demo creado exitosamente")
-                
-                if demo_user and demo_user.role == 'admin':
-                    login_user(demo_user, remember=True)
-                    return redirect(url_for('admin.dashboard'))
-            except Exception as e:
-                app.logger.error(f"Error en login automático DEMO: {str(e)}", exc_info=True)
+            return redirect(url_for('admin.dashboard'))
         
-        # 2. Si está autenticado (en modo normal), redirigir al dashboard correspondiente
-        if current_user.is_authenticated:
-            if current_user.is_admin():
-                return redirect(url_for('admin.dashboard'))
-            else:
-                return redirect(url_for('teacher.dashboard'))
-        
-        # 3. Si no está autenticado, redirigir a login
+        # Modo normal: redirigir a login
         return redirect(url_for('auth.login'))
     
     # Crear directorios necesarios
