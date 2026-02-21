@@ -1,114 +1,173 @@
-# Solucionar "Error en Modo Demo" en Render
+# Solucionar "relation users does not exist" en Render
 
 ## Problema
-Cuando accedes a `https://smartboletin-demo.onrender.com/`, ves el mensaje:
+Cuando accedes a `https://smartboletin-demo.onrender.com/`, ves el error:
 ```
-Error en modo demo
+relation "users" does not exist
 ```
 
-## Causa
-La base de datos en Neon.tech no tiene el usuario `demo@example.com` creado.
+## Causa Raíz
+**Las migraciones de la base de datos NO se han aplicado en Neon.tech**. Esto significa que:
+- Las tablas SQL no existen
+- No hay tabla `users`
+- No hay tabla `academic_years`, `grades`, etc.
 
 ## Solución Rápida (RECOMENDADO)
 
-### Opción 1: Usar la Shell de Render (Más fácil)
+### Paso 1: Abre Render Shell
+1. Ve a https://dashboard.render.com/
+2. Selecciona tu servicio: `smartboletin-demo`
+3. Ve a la pestaña: **"Shell"**
 
-1. Abre tu panel en https://dashboard.render.com/
-2. Selecciona tu servicio (smartboletin-demo)
-3. Ve a la pestaña **"Shell"**
-4. En la shell, ejecuta:
-   ```bash
-   python ensure_demo_user.py
-   ```
-5. Deberías ver algo como:
-   ```
-   ================================================================================
-   VERIFICANDO/CREANDO USUARIO DEMO
-   ================================================================================
-   
-   [OK] Usuario demo creado exitosamente
-   ...
-   COMPLETADO - Usuario demo listo para usar
-   ```
-
-6. Una vez hecho, accede a tu sitio: `https://smartboletin-demo.onrender.com/`
-
-### Opción 2: Script Remoto (Si la Shell no funciona)
-
-Si no tienes acceso a la shell, ejecuta este script desde tu máquina local:
-
+### Paso 2: Ejecuta el Script de Inicialización
+En la shell, ejecuta:
 ```bash
-# 1. Asegúrate de tener las variables de entorno
-export DATABASE_URL="postgresql://user:pass@ep-...neon.tech/neondb"
-export DEMO_MODE=true
-
-# 2. Ejecuta el script
-python init_remote_db.py
+python setup_remote_db.py
 ```
 
-## ¿Qué Ocurre Automáticamente Ahora?
-
-Hemos mejorado el código para que:
-
-1. **Si el usuario demo NO existe**, la aplicación lo crea automáticamente cuando:
-   - Accedes a `/` (ruta raíz)
-   - Accedes a `/auth/login`
-
-2. **Si el usuario demo EXISTE pero tiene rol incorrecto**, se corrige automáticamente
-
-3. **Si hay error al conectar a la BD**, se muestra un mensaje descriptivo en lugar de "Error en modo demo"
-
-## Verificación
-
-Después de ejecutar `python ensure_demo_user.py`, deberías ver:
-
+### Paso 3: Espera a que Termine
+Deberías ver algo como:
 ```
-[FINAL] Estado del usuario demo:
-   ID: 1
-   Email: demo@example.com
-   Nombre: Demo Admin
-   Rol: admin
-   Activo: True
-   Registrado: True
+==========================================================================================
+INICIALIZADOR COMPLETO DE BASE DE DATOS REMOTA PARA RENDER
+==========================================================================================
+
+[OK] Base de datos detectada: postgresql://...
+
+[PASO 1/3] Aplicando migraciones (creando tablas)...
+[OK] Migraciones aplicadas exitosamente
+
+[PASO 2/3] Verificando conexión a la base de datos...
+[OK] Conexión a base de datos exitosa
+
+[PASO 3/3] Creando/verificando usuario demo...
+   → Usuario demo NO existe, creando...
+   [OK] Usuario demo creado
+
+[INFORMACIÓN FINAL] Usuario demo:
+   ├─ Email: demo@example.com
+   ├─ Nombre: Demo Admin
+   ├─ Rol: admin
+   ├─ Activo: True
+   ├─ Registrado: True
+   └─ is_admin(): True
+
+==========================================================================================
+COMPLETADO - Base de datos remota inicializada correctamente!
+==========================================================================================
+
+Proximos pasos:
+1. Vuelve a Render Dashboard
+2. Ve a tu servicio y espera que termine de redeploy
+3. Accede a: https://smartboletin-demo.onrender.com/
+```
+
+### Paso 4: Accede a tu Sitio
+Abre tu navegador y ve a:
+```
+https://smartboletin-demo.onrender.com/
+```
+
+**¡Debería funcionar ahora!** ✅
+
+## Alternativa Manual (Si Shell no funciona)
+
+Si no tienes acceso a la shell o prefieres hacer paso a paso:
+
+### Opción A: Aplicar migraciones solo
+```bash
+flask db upgrade
+```
+
+### Opción B: Crear usuario demo solo
+```bash
+python ensure_demo_user.py
+```
+
+### Opción C: Hacer todo
+```bash
+flask db upgrade
+python ensure_demo_user.py
+```
+
+## Credenciales Demo Finales
+```
+Email: demo@example.com
+Contraseña: demo123
+Rol: admin
+```
+
+## Validación Si Algo Falla
+
+### Para ver qué pasó, revisa los logs:
+1. Dashboard.render.com → Tu servicio → "Logs"
+2. Busca errores como:
+   - `relation "users" does not exist` → Las migraciones no se aplicaron
+   - `ProgrammingError` → Problemas con SQL
+   - `connection refused` → Problema de conexión a BD
+
+### Para verificar que TODO está correcto:
+1. Abre Shell en Render
+2. Ejecuta:
+   ```bash
+   python diagnose.py
+   ```
+3. Deberías ver:
+   ```
+   USUARIO DEMO ENCONTRADO:
+   Role: admin
    is_admin(): True
-```
+   ```
 
-## Logeo Manual (Si nada funciona)
+## Si Aún Hay Problemas
 
-Credentials finales:
-- Email: `demo@example.com`
-- Contraseña: `demo123`
+### Opción 1: Reset Completo de BD en Neon
+1. Ve a https://console.neon.tech
+2. Selecciona tu base de datos
+3. SQL Editor → Ejecuta:
+   ```sql
+   DROP SCHEMA public CASCADE;
+   CREATE SCHEMA public;
+   ```
+4. Luego ejecuta `python setup_remote_db.py` de nuevo
 
-Accede a: `https://smartboletin-demo.onrender.com/auth/login`
+### Opción 2: Resetear Render (Nuclear Option)
+1. En Render Dashboard → Tu servicio → Settings
+2. Scroll abajo → "Delete Service"
+3. Crea el servicio de nuevo
 
-## Logs para Debugging
+## Resumen de lo que hace `setup_remote_db.py`
 
-Si aún tienes problemas:
-
-1. Ve a tu servicio en Render
-2. Pestaña **"Logs"**
-3. Busca errores que comiencen con:
-   - `[ERROR]`
-   - `Error en login automático DEMO`
-   - `DatabaseError`
-
-4. Comparte el error exacto para más ayuda
-
-## Variables de Entorno en Render
-
-Verifica que tu servicio tenga configuradas:
+El script hace TRES cosas en orden:
 
 ```
-DATABASE_URL = postgresql://...  (Tu URL de Neon)
-DEMO_MODE = true
-FLASK_ENV = production (o development)
-SECRET_KEY = tu_clave_secreta
+1. Conecta a la BD en Neon.tech
+2. Ejecuta: flask db upgrade
+   → Crea tabla 'users'
+   → Crea tabla 'academic_years'
+   → Crea tabla 'grades'
+   → Crea tabla 'sections'
+   → Crea todas las demás tablas
+3. Crea el usuario demo en la tabla 'users'
 ```
+
+## Variables de Entorno Requeridas en Render
+
+Verifica que estén configuradas en tu servicio:
+- ✅ `DATABASE_URL` - Tu URL de Neon.tech
+- ✅ `DEMO_MODE` - `true`
+- ✅ `FLASK_ENV` - `production`
+- ✅ `SECRET_KEY` - Una clave aleatoria
 
 ## Próximos Pasos
 
-1. ✅ Ejecuta `python ensure_demo_user.py` en Render Shell
-2. ✅ Accede a `https://smartboletin-demo.onrender.com/`
-3. ✅ Deberías ver el dashboard de admin
+1. ✅ Abre Render Shell
+2. ✅ Ejecuta `python setup_remote_db.py`
+3. ✅ Espera a que termine (5-10 segundos)
+4. ✅ Accede a tu sitio
+5. ✅ ¡Disfruta!
 
-¡Éxito!
+---
+
+**¿Todavía tiene problemas?** Revisa los logs en Render Dashboard → Tu servicio → "Logs"
+
