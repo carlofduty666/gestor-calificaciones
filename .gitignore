@@ -5,6 +5,7 @@ __pycache__/
 
 # Flask stuff:
 instance/
+!instance/app.db
 .webassets-cache
 
 # Environments
@@ -17,7 +18,7 @@ env.bak/
 venv.bak/
 
 # Database
-*.db
+# *.db  # Permitir instance/app.db para datos de demo
 *.sqlite
 
 # Logs
