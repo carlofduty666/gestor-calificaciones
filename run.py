@@ -3,7 +3,7 @@ from app.models.users import User
 from app.models.academic import AcademicYear, Period, Grade, Section, Subject, Student, Teacher, TeacherAssignment, Admin
 from app.models.grades import GradeType, StudentGrade, FinalGrade
 
-gunicorn run:app
+app = create_app()
 
 @app.shell_context_processor
 def make_shell_context():
