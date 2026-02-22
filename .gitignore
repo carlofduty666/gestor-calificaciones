@@ -4,8 +4,6 @@ __pycache__/
 *$py.class
 
 # Flask stuff:
-instance/
-!instance/app.db
 .webassets-cache
 
 # Environments

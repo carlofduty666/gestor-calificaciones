@@ -60,14 +60,19 @@ def build_connection_string(url_info):
         return None
 
 def test_connection(url, db_type="remote"):
-    """Prueba la conexión a la base de datos"""
+    """Prueba la conexión a la base de datos con soporte SSL"""
     try:
         if db_type == 'remote':
+            # Configurar SSL para proveedores cloud
+            connect_args = {"connect_timeout": 10}
+            if any(cloud in url for cloud in ["rlwy.net", "neon.tech", "supabase.co"]):
+                connect_args["sslmode"] = "require"
+            
             engine = create_engine(
                 url,
                 echo=False,
                 poolclass=NullPool,
-                connect_args={"connect_timeout": 10}
+                connect_args=connect_args
             )
         else:
             engine = create_engine(url, echo=False)
@@ -87,7 +92,7 @@ def test_connection(url, db_type="remote"):
     except Exception as e:
         print(f"  ❌ Error: {str(e)[:80]}...")
         return False
-
+    
 def get_supabase_url():
     """Obtiene la URL de Supabase del usuario"""
     print("\n" + "="*70)
@@ -115,42 +120,53 @@ def get_supabase_url():
     return url
 
 def migrate_data(source_db_url, target_db_url):
-    """Migra datos de SQLite a PostgreSQL"""
+    """Migra datos de SQLite a PostgreSQL con configuración robusta"""
     
+    # 1. Limpieza de la URL para SQLAlchemy
+    # Algunos proveedores requieren que el protocolo sea postgresql+psycopg2
+    if target_db_url.startswith("postgresql://"):
+        target_db_url = target_db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
     print("\n" + "="*70)
-    print(" 🔄 MIGRACIÓN DE DATOS: SQLite → Supabase PostgreSQL")
+    print(" 🔄 MIGRACIÓN DE DATOS: SQLite → Cloud PostgreSQL")
     print("="*70)
     
-    # Crear engines
-    print("\n📡 Conectando a bases de datos...")
-    
     try:
-        print("  Conectando a SQLite local...")
-        local_engine = create_engine('sqlite:///instance/app.db', echo=False)
-        if not test_connection('sqlite:///instance/app.db', 'local'):
-            return False
-    except Exception as e:
-        print(f"  ❌ Error con SQLite: {e}")
-        return False
-    
-    try:
-        print("  Conectando a Supabase PostgreSQL...")
-        if not test_connection(target_db_url, 'remote'):
-            print("\n⚠  Consejo: Verifica que tu URL sea exacta")
-            print("  Algunos caracteres especiales en la contraseña deben escaparse")
-            return False
+        print("\n📡 Conectando a bases de datos...")
         
+        # Conexión SQLite
+        local_engine = create_engine('sqlite:///instance/app.db', echo=False)
+        
+        # Conexión remota con parámetros de compatibilidad total
+        # Agregamos sslmode=require directamente en la URL si no está
+        if "sslmode" not in target_db_url:
+            connector = "&" if "?" in target_db_url else "?"
+            target_db_url += f"{connector}sslmode=require"
+
         remote_engine = create_engine(
             target_db_url,
             echo=False,
             poolclass=NullPool,
-            connect_args={"connect_timeout": 10}
+            connect_args={
+                "connect_timeout": 30,
+                "sslmode": "require",
+                "keepalives": 1,
+                "keepalives_idle": 30,
+                "keepalives_interval": 10,
+                "keepalives_count": 5
+            }
         )
+        
+        # Probar conexión manualmente antes de seguir
+        with remote_engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+            print("  🔒 Conexión Segura Establecida con Railway")
+
     except Exception as e:
-        print(f"  ❌ Error con Supabase: {e}")
+        print(f"  ❌ Error de Conexión: {e}")
         return False
     
-    # Crear sesiones
+    # Resto del proceso de migración...
     LocalSession = sessionmaker(bind=local_engine)
     RemoteSession = sessionmaker(bind=remote_engine)
     
@@ -158,32 +174,18 @@ def migrate_data(source_db_url, target_db_url):
     remote_session = RemoteSession()
     
     try:
-        # Crear tablas en Supabase
-        print("\n📋 Creando esquema en Supabase...")
-        try:
-            with remote_engine.begin() as conn:
-                db.metadata.create_all(bind=conn)
-            print("  ✓ Tablas creadas/verificadas")
-        except Exception as e:
-            print(f"  ⚠ Aviso: {e}")
+        print("\n📋 Creando esquema en el destino...")
+        with remote_engine.begin() as conn:
+            db.metadata.create_all(bind=conn)
+        print("  ✓ Tablas creadas/verificadas")
         
-        # Modelos a migrar (en orden de dependencias)
         models_to_migrate = [
-            (User, "Usuarios"),
-            (Admin, "Administradores"),
-            (Teacher, "Profesores"),
-            (AcademicYear, "Años Académicos"),
-            (Period, "Períodos"),
-            (Grade, "Grados"),
-            (Section, "Secciones"),
-            (Student, "Estudiantes"),
-            (GradeType, "Tipos de Calificación"),
-            (StudentGrade, "Calificaciones de Estudiantes"),
-            (FinalGrade, "Calificaciones Finales"),
-            (ExcelTemplate, "Plantillas Excel"),
-            (TemplateCell, "Celdas de Plantilla"),
-            (TemplateStyle, "Estilos de Plantilla"),
-            (TemplateRange, "Rangos de Plantilla"),
+            (User, "Usuarios"), (Admin, "Administradores"), (Teacher, "Profesores"),
+            (AcademicYear, "Años Académicos"), (Period, "Períodos"), (Grade, "Grados"),
+            (Section, "Secciones"), (Student, "Estudiantes"), (GradeType, "Tipos de Calificación"),
+            (StudentGrade, "Calificaciones de Estudiantes"), (FinalGrade, "Calificaciones Finales"),
+            (ExcelTemplate, "Plantillas Excel"), (TemplateCell, "Celdas de Plantilla"),
+            (TemplateStyle, "Estilos de Plantilla"), (TemplateRange, "Rangos de Plantilla"),
         ]
         
         total_records = 0
@@ -194,56 +196,33 @@ def migrate_data(source_db_url, target_db_url):
         print("─"*70)
         
         for model, display_name in models_to_migrate:
-            count = 0
-            
             try:
                 count = local_session.query(model).count()
-            except:
-                count = 0
-            
-            if count == 0:
-                print(f" ⊘ {display_name:.<45} (sin datos)")
-                continue
-            
-            print(f" 🔄 {display_name:.<45} ", end='', flush=True)
-            
-            try:
-                # Obtener registros
+                if count == 0:
+                    print(f" ⊘ {display_name:.<45} (sin datos)")
+                    continue
+                
+                print(f" 🔄 {display_name:.<45} ", end='', flush=True)
                 records = local_session.query(model).all()
                 
-                # Insertar en remoto
                 for record in records:
                     remote_session.merge(record)
                 
-                # Commit
                 remote_session.commit()
-                
                 print(f"✓ ({count})")
                 total_records += count
                 migrated_tables.append((display_name, count))
-                
             except Exception as e:
-                print(f"❌ ERROR: {str(e)[:40]}")
+                print(f"❌ ERROR en {display_name}: {str(e)[:40]}")
                 remote_session.rollback()
-                raise
-        
-        # Resumen
-        print("\n" + "="*70)
-        print(" ✅ MIGRACIÓN COMPLETADA EXITOSAMENTE")
-        print("="*70)
-        print(f"\n 📊 Resumen:")
-        for table_name, count in migrated_tables:
-            print(f"    {table_name:.<45} {count:>4} registros")
-        print(f"\n    {'TOTAL':.<45} {total_records:>4} registros")
-        print("\n" + "="*70)
-        
+                continue # Intentar con la siguiente tabla
+
+        print("\n ✅ MIGRACIÓN FINALIZADA")
         return True
         
     except Exception as e:
         print(f"\n❌ ERROR CRÍTICO: {e}")
-        remote_session.rollback()
         return False
-        
     finally:
         local_session.close()
         remote_session.close()
